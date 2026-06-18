@@ -1,0 +1,11 @@
+# PyTorch: installalo PRIMA seguendo https://pytorch.org/get-started/locally/
+# scegliendo la build CUDA giusta per la tua GPU. Poi installa il resto.
+torch
+torchvision
+numpy
+pandas
+pillow
+pyyaml
+scikit-learn
+matplotlib
+tqdm

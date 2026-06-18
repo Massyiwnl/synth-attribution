@@ -1,0 +1,33 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# --- Ambienti virtuali ---
+.venv/
+venv/
+env/
+*.egg-info/
+
+# --- Dati e pesi: NON committare (GB di immagini / checkpoint) ---
+data/raw/
+data/processed/
+data/manifest.csv
+*.ckpt
+*.pkl
+*.pt
+*.pth
+
+# --- Output esperimenti ---
+runs/
+wandb/
+outputs/
+logs/
+*.log
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

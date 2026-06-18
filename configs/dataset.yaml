@@ -1,0 +1,32 @@
+# Configurazione dataset - Fase 1
+# Attribution di immagini sintetiche (riprende il dataset IPLab/Guarnera)
+
+paths:
+  raw_root: data/raw            # alberatura sorgente (vedi data/README.md)
+  manifest: data/manifest.csv   # output di build_manifest.py
+
+image:
+  size: 256        # risoluzione di lavoro: 256 = minimo comune delle editing-GAN
+  # Risoluzioni native: StarGAN/AttGAN 256, GDWCT 216, StyleGAN/StyleGAN2 1024.
+  # In training si riallinea tutto a 'size'.
+
+# Mappa lineage: per ogni dataset reale, le architetture che ne derivano
+lineage:
+  celeba: [stargan, attgan, gdwct]
+  ffhq:   [stylegan, stylegan2]
+
+# Editing-GAN: hanno una real sorgente allineata pixel-a-pixel (coppie vere)
+aligned_architectures: [stargan, attgan, gdwct]
+# Noise-GAN: nessuna real accoppiata per-immagine
+noise_architectures: [stylegan, stylegan2]
+
+counts:
+  per_architecture: 3000        # come nel lavoro IPLab precedente
+  per_real_dataset: 3000
+
+split:
+  seed: 42
+  ratios: {train: 0.70, val: 0.15, test: 0.15}
+  # Protocollo di generalizzazione (Fase 3): architetture/versioni da tenere
+  # COMPLETAMENTE fuori dal training (vanno tutte in 'test'). Vuoto = split standard.
+  holdout_architectures: []     # es. [gdwct]  oppure  [stylegan2]
