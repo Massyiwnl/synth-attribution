@@ -88,7 +88,7 @@ def collect(raw_root: str, cfg: dict):
 
 
 def assign_splits(rows, cfg):
-    rnd = random.Random(cfg["split"]["seed"])
+    seed = cfg["split"]["seed"]
     holdout = set(cfg["split"].get("holdout_architectures") or [])
     ratios = cfg["split"]["ratios"]
 
@@ -97,22 +97,22 @@ def assign_splits(rows, cfg):
     for r in rows:
         groups.setdefault((r["label"], r["architecture"]), []).append(r)
 
-    for (_label, arch), items in groups.items():
+    for (label, arch), items in groups.items():
         if arch in holdout:
             for r in items:
                 r["split"] = "test"        # architettura mai vista -> solo test
             continue
-        rnd.shuffle(items)
+        # RNG dedicato al gruppo: lo split di una classe NON dipende da quali
+        # altre architetture sono in holdout -> esperimenti pienamente confrontabili
+        rng = random.Random(f"{seed}-{label}-{arch}")
+        rng.shuffle(items)
         n = len(items)
         n_tr = int(n * ratios["train"])
         n_va = int(n * ratios["val"])
         for i, r in enumerate(items):
-            if i < n_tr:
-                r["split"] = "train"
-            elif i < n_tr + n_va:
-                r["split"] = "val"
-            else:
-                r["split"] = "test"
+            r["split"] = ("train" if i < n_tr
+                          else "val" if i < n_tr + n_va
+                          else "test")
     return rows
 
 
