@@ -1,16 +1,27 @@
 """
-siamese_dataset.py - Fasi 1/2
-Dataset PyTorch a partire dal manifest, con costruzione di coppie per la rete siamese.
+siamese_dataset.py - Fasi 1/2/3
+Dataset PyTorch dal manifest, con coppie per la rete siamese.
 
-Convenzione etichette (coerente con la contrastive loss della Fase 2):
-    y = 1  -> coppia GENUINE   (stessa origine)   -> distanza piccola desiderata
-    y = 0  -> coppia IMPOSTORE  (origine diversa)  -> distanza >= margine
+Etichette (coerenti con la contrastive loss):
+    y = 1  -> coppia GENUINE   -> distanza piccola
+    y = 0  -> coppia IMPOSTORE  -> distanza >= margine
 
 Politiche di pairing:
-    "same_source": genuine se condividono source_dataset (celeba/ffhq); impostore altrimenti.
-    "aligned":     come sopra, ma se l'ANCORA e' un fake di editing-GAN, la partner
-                   genuine preferita e' la sua REAL sorgente (stesso source_id) ->
-                   coppia allineata pixel-a-pixel (base per residuo e localizzazione).
+    "architecture": genuine = stessa classe generativa; impostore = classe diversa.
+                    Classe = architecture per i fake; "real_<source>" per i reali
+                    (real_celeba e real_ffhq sono classi distinte).
+    "same_source":  genuine = stesso source_dataset (celeba/ffhq).
+    "aligned":      come same_source, ma per i fake di editing-GAN la partner genuine
+                    preferita e' la real sorgente allineata pixel-a-pixel.
+
+lineage_filter: se 'celeba' o 'ffhq', restringe il dataset a quella lineage
+                (test pulito within-lineage, senza confound di dataset).
+
+__getitem__ restituisce anche il codice di lineage della coppia, per separare le
+metriche in valutazione:  0 = within-celeba, 1 = within-ffhq, -1 = cross-lineage.
+
+Coppie DETERMINISTICHE per indice (seed da i): val riproducibile, nessuna
+correlazione fra worker del DataLoader.
 """
 import random
 
@@ -22,11 +33,11 @@ import torchvision.transforms as T
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
+LINEAGE_CODE = {"celeba": 0, "ffhq": 1}
 
 
 def build_transform(size: int, train: bool = True):
-    # Augmentation FORENSIC-AWARE: niente color jitter / blur / jpeg, distruggono
-    # la traccia ad alta frequenza. Il flip orizzontale non altera lo spettro.
+    # Augmentation forensic-aware: solo flip orizzontale (non altera lo spettro).
     ops = [T.Resize((size, size))]
     if train:
         ops.append(T.RandomHorizontalFlip(0.5))
@@ -38,12 +49,24 @@ def load_image(path: str) -> Image.Image:
     return Image.open(path).convert("RGB")
 
 
-class SingleImageDataset(Dataset):
-    """Per estrarre embedding in fase di valutazione (Fase 3)."""
+def read_manifest(manifest: str, split: str, lineage_filter=None) -> pd.DataFrame:
+    df = pd.read_csv(manifest, dtype={"source_id": str}, keep_default_na=False)
+    df = df[df.split == split]
+    if lineage_filter:
+        df = df[df.source_dataset == lineage_filter]
+    return df.reset_index(drop=True)
 
-    def __init__(self, manifest: str, split: str, size: int):
-        df = pd.read_csv(manifest)
-        self.df = df[df.split == split].reset_index(drop=True)
+
+def class_of(label, architecture, source_dataset):
+    """Classe generativa: architecture per i fake, real_<source> per i reali."""
+    return architecture if label == "fake" else f"real_{source_dataset}"
+
+
+class SingleImageDataset(Dataset):
+    """Per estrarre embedding in valutazione (Fase 3)."""
+
+    def __init__(self, manifest, split, size, lineage_filter=None):
+        self.df = read_manifest(manifest, split, lineage_filter)
         self.tf = build_transform(size, train=False)
 
     def __len__(self):
@@ -55,54 +78,53 @@ class SingleImageDataset(Dataset):
 
 
 class SiamesePairDataset(Dataset):
-    def __init__(self, manifest: str, split: str, size: int,
-                 policy: str = "aligned", genuine_prob: float = 0.5, seed: int = 42):
-        df = pd.read_csv(manifest)
-        self.df = df[df.split == split].reset_index(drop=True)
+    def __init__(self, manifest, split, size, policy="architecture",
+                 genuine_prob=0.5, seed=42, lineage_filter=None):
+        self.df = read_manifest(manifest, split, lineage_filter)
         self.tf = build_transform(size, train=(split == "train"))
         self.policy = policy
         self.genuine_prob = genuine_prob
-        self.rng = random.Random(seed)
+        self.seed = seed
 
-        # indici raggruppati per dataset di origine
-        self.by_source = {
-            s: self.df.index[self.df.source_dataset == s].tolist()
-            for s in self.df.source_dataset.dropna().unique() if s != ""
-        }
-        # mappa "source_dataset/source_id" -> indice della REAL corrispondente
+        self.groups = {}
+        for idx, row in self.df.iterrows():
+            self.groups.setdefault(self._group_key(row), []).append(idx)
         reals = self.df[self.df.label == "real"]
-        self.real_by_id = {
-            f"{row.source_dataset}/{row.source_id}": idx
-            for idx, row in reals.iterrows()
-        }
+        self.real_by_id = {f"{r.source_dataset}/{r.source_id}": idx
+                           for idx, r in reals.iterrows()}
+
+    def _group_key(self, r):
+        if self.policy == "architecture":
+            return class_of(r.label, r.architecture, r.source_dataset)
+        return r.source_dataset            # same_source / aligned
 
     def __len__(self):
         return len(self.df)
 
-    def _genuine_partner(self, i, r):
-        # coppia allineata: fake editing-GAN <-> sua real sorgente
-        if (self.policy == "aligned" and r.label == "fake"
-                and isinstance(r.source_id, str) and r.source_id):
+    def _genuine_partner(self, i, r, rng):
+        if self.policy == "aligned" and r.label == "fake" and r.source_id:
             j = self.real_by_id.get(f"{r.source_dataset}/{r.source_id}")
             if j is not None and j != i:
                 return j
-        # fallback: stessa origine
-        pool = [k for k in self.by_source.get(r.source_dataset, []) if k != i]
-        return self.rng.choice(pool) if pool else i
+        pool = [k for k in self.groups.get(self._group_key(r), []) if k != i]
+        return rng.choice(pool) if pool else i
 
-    def _impostor_partner(self, i, r):
-        others = [s for s in self.by_source if s != r.source_dataset]
+    def _impostor_partner(self, i, r, rng):
+        key = self._group_key(r)
+        others = [g for g in self.groups if g != key]
         if not others:
             return i
-        s = self.rng.choice(others)
-        return self.rng.choice(self.by_source[s])
+        return rng.choice(self.groups[rng.choice(others)])
 
     def __getitem__(self, i):
+        rng = random.Random(self.seed * 1_000_003 + i)
         r = self.df.iloc[i]
-        if self.rng.random() < self.genuine_prob:
-            j, y = self._genuine_partner(i, r), 1.0
+        if rng.random() < self.genuine_prob:
+            j, y = self._genuine_partner(i, r, rng), 1.0
         else:
-            j, y = self._impostor_partner(i, r), 0.0
+            j, y = self._impostor_partner(i, r, rng), 0.0
+        rp = self.df.iloc[j]
+        lc = LINEAGE_CODE.get(r.source_dataset, -2) if r.source_dataset == rp.source_dataset else -1
         a = self.tf(load_image(r.path))
-        b = self.tf(load_image(self.df.iloc[j].path))
-        return a, b, torch.tensor(y, dtype=torch.float32)
+        b = self.tf(load_image(rp.path))
+        return a, b, torch.tensor(y, dtype=torch.float32), torch.tensor(lc, dtype=torch.long)
