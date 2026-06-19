@@ -13,12 +13,12 @@ image:
 # Mappa lineage: per ogni dataset reale, le architetture che ne derivano
 lineage:
   celeba: [stargan, attgan, gdwct]
-  ffhq:   [stylegan, stylegan2]
+  ffhq:   [stylegan2, stylegan3]
 
 # Editing-GAN: hanno una real sorgente allineata pixel-a-pixel (coppie vere)
 aligned_architectures: [stargan, attgan, gdwct]
 # Noise-GAN: nessuna real accoppiata per-immagine
-noise_architectures: [stylegan, stylegan2]
+noise_architectures: [stylegan2, stylegan3]
 
 counts:
   per_architecture: 3000        # come nel lavoro IPLab precedente
@@ -29,4 +29,4 @@ split:
   ratios: {train: 0.70, val: 0.15, test: 0.15}
   # Protocollo di generalizzazione (Fase 3): architetture/versioni da tenere
   # COMPLETAMENTE fuori dal training (vanno tutte in 'test'). Vuoto = split standard.
-  holdout_architectures: []     # es. [gdwct]  oppure  [stylegan2]
+  holdout_architectures: [stylegan2]   # ablazione di simmetria: SG2 fuori, alleno su SG3

@@ -1,0 +1,27 @@
+# Configurazione training - Fase 2 (rete siamese + contrastive loss)
+
+data:
+  manifest: data/manifest.csv
+  image_size: 256
+  pairing_policy: architecture   # architecture | same_source | aligned
+  lineage_filter: ffhq           # celeba | ffhq | null  (Fase 3: alleno su FFHQ senza SG3)
+  genuine_prob: 0.5
+  num_workers: 4
+
+model:
+  backbone: resnet18
+  pretrained: true            # init ImageNet (convergenza piu' rapida; ablazione from-scratch in seguito)
+  embedding_dim: 128
+  front_end: none             # none | highpass | srm  (ablazione simmetria: RGB come il baseline)
+
+loss:
+  margin: 1.0                 # embedding L2-normalizzati -> distanza in [0, 2]
+
+train:
+  epochs: 30
+  batch_size: 64              # riducilo (es. 32) se la GPU va in out-of-memory
+  lr: 0.0001
+  weight_decay: 0.0001
+  seed: 42
+  out_dir: runs/ffhq_holdout_sg2
+  amp: true                   # mixed precision (attiva solo su GPU)
