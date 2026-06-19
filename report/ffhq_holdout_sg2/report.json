@@ -1,0 +1,46 @@
+{
+  "checkpoint": "runs/ffhq_holdout_sg2/best.pt",
+  "epoch": 23,
+  "lineage": "ffhq",
+  "holdout": "stylegan2",
+  "n_per_class": 500,
+  "classes": [
+    "real",
+    "stylegan2",
+    "stylegan3"
+  ],
+  "class_distance_matrix": [
+    [
+      0.45225825905799866,
+      0.5913087725639343,
+      0.6615942716598511
+    ],
+    [
+      0.5913087725639343,
+      0.4763612151145935,
+      0.4762163460254669
+    ],
+    [
+      0.6615942120552063,
+      0.4762163758277893,
+      0.45124319195747375
+    ]
+  ],
+  "intra_spread": {
+    "real": 0.3222336173057556,
+    "stylegan2": 0.34360387921333313,
+    "stylegan3": 0.32109513878822327
+  },
+  "nn_same_class_rate": {
+    "real": 0.5735930735930735,
+    "stylegan2": 0.346,
+    "stylegan3": 0.3933333333333333
+  },
+  "heldout_nn_confusion": {
+    "real": 133,
+    "stylegan2": 173,
+    "stylegan3": 194
+  },
+  "overall_verification_auc": 0.6296545957009292,
+  "heldout_verification_auc": 0.5664399095647435
+}

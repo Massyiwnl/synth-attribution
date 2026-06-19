@@ -1,0 +1,46 @@
+{
+  "checkpoint": "runs/ffhq_holdout_sg3_residual/best.pt",
+  "epoch": 19,
+  "lineage": "ffhq",
+  "holdout": "stylegan3",
+  "n_per_class": 500,
+  "classes": [
+    "real",
+    "stylegan2",
+    "stylegan3"
+  ],
+  "class_distance_matrix": [
+    [
+      0.20321597158908844,
+      0.9076530337333679,
+      0.47779226303100586
+    ],
+    [
+      0.9076530933380127,
+      0.1884874701499939,
+      0.6090183258056641
+    ],
+    [
+      0.47779226303100586,
+      0.6090183258056641,
+      0.5056783556938171
+    ]
+  ],
+  "intra_spread": {
+    "real": 0.1490972936153412,
+    "stylegan2": 0.13746294379234314,
+    "stylegan3": 0.40624672174453735
+  },
+  "nn_same_class_rate": {
+    "real": 0.7316017316017316,
+    "stylegan2": 0.7733333333333333,
+    "stylegan3": 0.418
+  },
+  "heldout_nn_confusion": {
+    "real": 169,
+    "stylegan2": 122,
+    "stylegan3": 209
+  },
+  "overall_verification_auc": 0.7629738055891204,
+  "heldout_verification_auc": 0.5230961578244208
+}
