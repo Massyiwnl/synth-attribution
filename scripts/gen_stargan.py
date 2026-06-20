@@ -71,7 +71,12 @@ def main():
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     G = Generator(conv_dim=64, c_dim=args.c_dim, repeat_num=6).to(dev)
     G.load_state_dict(torch.load(args.ckpt, map_location=dev))
-    G.eval()
+    # IMPORTANTE: NON usare G.eval(). Il Generator di StarGAN usa InstanceNorm con
+    # track_running_stats=True; in eval() userebbe running stats inutilizzabili e
+    # produce output corrotti (cast rosa + pattern a griglia, vedi issue #102 del repo).
+    # In train mode l'InstanceNorm calcola le statistiche per-immagine -> output corretto.
+    # E' deterministico (niente dropout/BatchNorm) e gira sotto torch.no_grad().
+    G.train()
 
     # i crop canonici sono gia' quadrati -> resize alla risoluzione del modello + normalize
     pre = T.Compose([
