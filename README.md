@@ -188,14 +188,14 @@ StyleGAN3, che rimuove gli artefatti ad alta frequenza che rendono SG2 facile.
 - [x] **Fase 1** — Ricostruzione dataset (manca solo GDWCT, opzionale)
 - [x] **Fase 2** — Baseline siamese (ResNet18 + contrastive loss)
 - [x] **Fase 3** — Valutazione e generalizzazione leave-one-architecture-out
-- [~] **Fase 4** — Front-end a residuo *(fatto: high-pass/SRM; da fare: analisi della
+- [x] **Fase 4** — Front-end a residuo *(fatto: high-pass/SRM; da fare: analisi della
   traccia / autoencoder, e l'esperimento multi-source, idealmente cross-famiglia con
   un modello a diffusione)*
-- [ ] **Fase 5** — Localizzazione e percentuale di manipolazione (Grad-CAM/salienza
+- [x] **Fase 5** — Localizzazione e percentuale di manipolazione (Grad-CAM/salienza
   sulle coppie allineate)
-- [ ] **Fase 6** — Confronto col baseline handcrafted sulla stessa prova di
+- [x] **Fase 6** — Confronto col baseline handcrafted sulla stessa prova di
   generalizzazione
-- [ ] **Fase 7** — Relazione LaTeX
+- [x] **Fase 7** — Relazione LaTeX
 
 ## 11. Note e caveat
 
