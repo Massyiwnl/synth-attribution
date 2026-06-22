@@ -1,6 +1,6 @@
 # Synthetic Image Source Attribution (`synth-attribution`)
 
-Progetto di **Multimedia Forensics** — Università di Catania (IPLab, prof. Guarnera).
+Progetto di **Multimedia Forensics** — Università di Catania (prof. Guarnera).
 Attribuzione della **sorgente generativa** di immagini sintetiche di volti tramite
 *metric learning* siamese: si impara uno spazio di embedding in cui immagini dello
 stesso generatore (o reali) si raggruppano e generatori diversi si separano. Sopra
