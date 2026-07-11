@@ -49,11 +49,15 @@ def load_image(path: str) -> Image.Image:
     return Image.open(path).convert("RGB")
 
 
-def read_manifest(manifest: str, split: str, lineage_filter=None) -> pd.DataFrame:
+def read_manifest(manifest: str, split: str, lineage_filter=None, only_fake=None) -> pd.DataFrame:
     df = pd.read_csv(manifest, dtype={"source_id": str}, keep_default_na=False)
     df = df[df.split == split]
     if lineage_filter:
         df = df[df.source_dataset == lineage_filter]
+    if only_fake:
+        # tiene solo reali + UN generatore (per il leave-one-generator-out):
+        # i reali fanno da esempio negativo, il generatore da positivo.
+        df = df[(df.label == "real") | (df.architecture == only_fake)]
     return df.reset_index(drop=True)
 
 
@@ -65,8 +69,8 @@ def class_of(label, architecture, source_dataset):
 class SingleImageDataset(Dataset):
     """Per estrarre embedding in valutazione (Fase 3)."""
 
-    def __init__(self, manifest, split, size, lineage_filter=None):
-        self.df = read_manifest(manifest, split, lineage_filter)
+    def __init__(self, manifest, split, size, lineage_filter=None, only_fake=None):
+        self.df = read_manifest(manifest, split, lineage_filter, only_fake)
         self.tf = build_transform(size, train=False)
 
     def __len__(self):
@@ -79,8 +83,8 @@ class SingleImageDataset(Dataset):
 
 class SiamesePairDataset(Dataset):
     def __init__(self, manifest, split, size, policy="architecture",
-                 genuine_prob=0.5, seed=42, lineage_filter=None):
-        self.df = read_manifest(manifest, split, lineage_filter)
+                 genuine_prob=0.5, seed=42, lineage_filter=None, only_fake=None):
+        self.df = read_manifest(manifest, split, lineage_filter, only_fake)
         self.tf = build_transform(size, train=(split == "train"))
         self.policy = policy
         self.genuine_prob = genuine_prob

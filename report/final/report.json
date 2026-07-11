@@ -1,0 +1,23 @@
+{
+  "checkpoint": "runs\\final_all\\best.pt",
+  "classes": [
+    "attgan",
+    "gdwct",
+    "real_celeba",
+    "real_ffhq",
+    "stargan",
+    "stylegan2",
+    "stylegan3"
+  ],
+  "top1_accuracy": 0.7628571428571429,
+  "per_class_accuracy": {
+    "attgan": 1.0,
+    "gdwct": 1.0,
+    "real_celeba": 1.0,
+    "real_ffhq": 0.55,
+    "stargan": 1.0,
+    "stylegan2": 0.58,
+    "stylegan3": 0.21
+  },
+  "n_probe": 1400
+}

@@ -1,0 +1,133 @@
+{
+  "checkpoint": "runs\\celeba__stargan\\best.pt",
+  "epoch": 1,
+  "trained_lineage": "celeba",
+  "trained_fake": "stargan",
+  "tau_eer": 1.1680577993392944,
+  "n_per_class": 400,
+  "per_generator": {
+    "attgan": {
+      "auc": 0.632725,
+      "ap": 0.6504299361670274,
+      "acc": 0.5,
+      "seen": false,
+      "test_lineage": "celeba",
+      "n_fake": 400,
+      "n_real": 400,
+      "mean_d_fake": 0.05310821533203125,
+      "mean_d_real": 0.0433209091424942
+    },
+    "gdwct": {
+      "auc": 0.6346375,
+      "ap": 0.619389402460728,
+      "acc": 0.5,
+      "seen": false,
+      "test_lineage": "celeba",
+      "n_fake": 400,
+      "n_real": 400,
+      "mean_d_fake": 0.04721423238515854,
+      "mean_d_real": 0.0433209091424942
+    },
+    "stargan": {
+      "auc": 1.0,
+      "ap": 1.0,
+      "acc": 0.99875,
+      "seen": true,
+      "test_lineage": "celeba",
+      "n_fake": 400,
+      "n_real": 400,
+      "mean_d_fake": 1.2213537693023682,
+      "mean_d_real": 0.0433209091424942
+    },
+    "stylegan2": {
+      "auc": 0.5060125,
+      "ap": 0.5001970603773422,
+      "acc": 0.5,
+      "seen": false,
+      "test_lineage": "ffhq",
+      "n_fake": 400,
+      "n_real": 400,
+      "mean_d_fake": 0.051560431718826294,
+      "mean_d_real": 0.05158834531903267
+    },
+    "stylegan3": {
+      "auc": 0.49040625000000004,
+      "ap": 0.4861780270701579,
+      "acc": 0.5,
+      "seen": false,
+      "test_lineage": "ffhq",
+      "n_fake": 400,
+      "n_real": 400,
+      "mean_d_fake": 0.05117354914546013,
+      "mean_d_real": 0.05158834531903267
+    }
+  },
+  "threshold_sweep_diagonal": [
+    {
+      "thr": 0.027,
+      "acc": 0.5012,
+      "tpr": 1.0,
+      "fpr": 0.9975
+    },
+    {
+      "thr": 0.1481,
+      "acc": 1.0,
+      "tpr": 1.0,
+      "fpr": 0.0
+    },
+    {
+      "thr": 0.2693,
+      "acc": 1.0,
+      "tpr": 1.0,
+      "fpr": 0.0
+    },
+    {
+      "thr": 0.3904,
+      "acc": 1.0,
+      "tpr": 1.0,
+      "fpr": 0.0
+    },
+    {
+      "thr": 0.5116,
+      "acc": 1.0,
+      "tpr": 1.0,
+      "fpr": 0.0
+    },
+    {
+      "thr": 0.6327,
+      "acc": 1.0,
+      "tpr": 1.0,
+      "fpr": 0.0
+    },
+    {
+      "thr": 0.7538,
+      "acc": 1.0,
+      "tpr": 1.0,
+      "fpr": 0.0
+    },
+    {
+      "thr": 0.875,
+      "acc": 1.0,
+      "tpr": 1.0,
+      "fpr": 0.0
+    },
+    {
+      "thr": 0.9961,
+      "acc": 1.0,
+      "tpr": 1.0,
+      "fpr": 0.0
+    },
+    {
+      "thr": 1.1172,
+      "acc": 1.0,
+      "tpr": 1.0,
+      "fpr": 0.0
+    },
+    {
+      "thr": 1.2384,
+      "acc": 0.5,
+      "tpr": 0.0,
+      "fpr": 0.0
+    }
+  ]
+}

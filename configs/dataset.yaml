@@ -6,27 +6,15 @@ paths:
   manifest: data/manifest.csv   # output di build_manifest.py
 
 image:
-  size: 256        # risoluzione di lavoro: 256 = minimo comune delle editing-GAN
-  # Risoluzioni native: StarGAN/AttGAN 256, GDWCT 216, StyleGAN/StyleGAN2 1024.
-  # In training si riallinea tutto a 'size'.
+  size: 256
+  # Native: StarGAN/AttGAN 128, GDWCT 216, StyleGAN1/2/3 1024.
 
-# Mappa lineage: per ogni dataset reale, le architetture che ne derivano
 lineage:
   celeba: [stargan, attgan, gdwct]
   ffhq:   [stylegan2, stylegan3]
-
-# Editing-GAN: hanno una real sorgente allineata pixel-a-pixel (coppie vere)
-aligned_architectures: [stargan, attgan, gdwct]
-# Noise-GAN: nessuna real accoppiata per-immagine
-noise_architectures: [stylegan2, stylegan3]
-
-counts:
-  per_architecture: 3000        # come nel lavoro IPLab precedente
-  per_real_dataset: 3000
-
+aligned_architectures: [stargan, attgan]
+noise_architectures:   [gdwct, stylegan2, stylegan3]
 split:
   seed: 42
   ratios: {train: 0.70, val: 0.15, test: 0.15}
-  # Protocollo di generalizzazione (Fase 3): architetture/versioni da tenere
-  # COMPLETAMENTE fuori dal training (vanno tutte in 'test'). Vuoto = split standard.
-  holdout_architectures: [stylegan2]   # ablazione di simmetria: SG2 fuori, alleno su SG3
+  holdout_architectures: []

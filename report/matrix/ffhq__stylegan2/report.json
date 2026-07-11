@@ -1,0 +1,133 @@
+{
+  "checkpoint": "runs\\ffhq__stylegan2\\best.pt",
+  "epoch": 19,
+  "trained_lineage": "ffhq",
+  "trained_fake": "stylegan2",
+  "tau_eer": 0.494964599609375,
+  "n_per_class": 400,
+  "per_generator": {
+    "attgan": {
+      "auc": 0.52415,
+      "ap": 0.5298345429155826,
+      "acc": 0.5025,
+      "seen": false,
+      "test_lineage": "celeba",
+      "n_fake": 400,
+      "n_real": 400,
+      "mean_d_fake": 0.08542967587709427,
+      "mean_d_real": 0.08015922456979752
+    },
+    "gdwct": {
+      "auc": 0.42283125,
+      "ap": 0.4325708666354764,
+      "acc": 0.49625,
+      "seen": false,
+      "test_lineage": "celeba",
+      "n_fake": 400,
+      "n_real": 400,
+      "mean_d_fake": 0.06022512540221214,
+      "mean_d_real": 0.08015922456979752
+    },
+    "stargan": {
+      "auc": 0.5113062500000001,
+      "ap": 0.4873603668763047,
+      "acc": 0.49625,
+      "seen": false,
+      "test_lineage": "celeba",
+      "n_fake": 400,
+      "n_real": 400,
+      "mean_d_fake": 0.06933951377868652,
+      "mean_d_real": 0.08015922456979752
+    },
+    "stylegan2": {
+      "auc": 0.96120625,
+      "ap": 0.9664052141998756,
+      "acc": 0.9125,
+      "seen": true,
+      "test_lineage": "ffhq",
+      "n_fake": 400,
+      "n_real": 400,
+      "mean_d_fake": 0.8215923309326172,
+      "mean_d_real": 0.2195127308368683
+    },
+    "stylegan3": {
+      "auc": 0.7873937500000001,
+      "ap": 0.8201592405618746,
+      "acc": 0.73,
+      "seen": false,
+      "test_lineage": "ffhq",
+      "n_fake": 400,
+      "n_real": 400,
+      "mean_d_fake": 0.5336312651634216,
+      "mean_d_real": 0.2195127308368683
+    }
+  },
+  "threshold_sweep_diagonal": [
+    {
+      "thr": 0.0755,
+      "acc": 0.5012,
+      "tpr": 1.0,
+      "fpr": 0.9975
+    },
+    {
+      "thr": 0.1778,
+      "acc": 0.8,
+      "tpr": 0.9775,
+      "fpr": 0.3775
+    },
+    {
+      "thr": 0.2802,
+      "acc": 0.8962,
+      "tpr": 0.95,
+      "fpr": 0.1575
+    },
+    {
+      "thr": 0.3826,
+      "acc": 0.9012,
+      "tpr": 0.935,
+      "fpr": 0.1325
+    },
+    {
+      "thr": 0.4849,
+      "acc": 0.915,
+      "tpr": 0.9175,
+      "fpr": 0.0875
+    },
+    {
+      "thr": 0.5873,
+      "acc": 0.9137,
+      "tpr": 0.8875,
+      "fpr": 0.06
+    },
+    {
+      "thr": 0.6897,
+      "acc": 0.9038,
+      "tpr": 0.8525,
+      "fpr": 0.045
+    },
+    {
+      "thr": 0.792,
+      "acc": 0.8775,
+      "tpr": 0.7775,
+      "fpr": 0.0225
+    },
+    {
+      "thr": 0.8944,
+      "acc": 0.7462,
+      "tpr": 0.5,
+      "fpr": 0.0075
+    },
+    {
+      "thr": 0.9968,
+      "acc": 0.5075,
+      "tpr": 0.015,
+      "fpr": 0.0
+    },
+    {
+      "thr": 1.0991,
+      "acc": 0.5,
+      "tpr": 0.0,
+      "fpr": 0.0
+    }
+  ]
+}

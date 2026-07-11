@@ -77,9 +77,22 @@ def fmt(name, b):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="configs/train.yaml")
+    # override opzionali (per il leave-one-generator-out lanciato da script)
+    ap.add_argument("--lineage-filter", default=None, help="celeba | ffhq | all")
+    ap.add_argument("--only-fake", default=None, help="allena su reali + SOLO questo generatore")
+    ap.add_argument("--out", default=None, help="cartella di output (override train.out_dir)")
+    ap.add_argument("--epochs", type=int, default=None)
     args = ap.parse_args()
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
+    # applica gli override
+    if args.lineage_filter is not None:
+        cfg["data"]["lineage_filter"] = None if args.lineage_filter == "all" else args.lineage_filter
+    if args.out is not None:
+        cfg["train"]["out_dir"] = args.out
+    if args.epochs is not None:
+        cfg["train"]["epochs"] = args.epochs
+    only_fake = args.only_fake
 
     set_seed(cfg["train"]["seed"])
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -90,13 +103,13 @@ def main():
     d = cfg["data"]
     seed = cfg["train"]["seed"]
     lf = d.get("lineage_filter") or None
-    print(f"Policy: {d['pairing_policy']}  lineage_filter: {lf}")
+    print(f"Policy: {d['pairing_policy']}  lineage_filter: {lf}  only_fake: {only_fake}")
     train_ds = SiamesePairDataset(d["manifest"], "train", d["image_size"],
                                   policy=d["pairing_policy"], genuine_prob=d["genuine_prob"],
-                                  seed=seed, lineage_filter=lf)
+                                  seed=seed, lineage_filter=lf, only_fake=only_fake)
     val_ds = SiamesePairDataset(d["manifest"], "val", d["image_size"],
                                 policy=d["pairing_policy"], genuine_prob=0.5,
-                                seed=seed, lineage_filter=lf)
+                                seed=seed, lineage_filter=lf, only_fake=only_fake)
     print(f"Coppie: train={len(train_ds)}  val={len(val_ds)}")
     train_loader = DataLoader(train_ds, batch_size=cfg["train"]["batch_size"], shuffle=True,
                               num_workers=d["num_workers"], pin_memory=True, drop_last=True)
