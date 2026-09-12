@@ -1,0 +1,43 @@
+{
+  "backbone": "clip_vit_l14",
+  "manifest": "data/manifest_lineage_pm128.csv",
+  "zero_shot": true,
+  "auc_fake_only": 0.8798999999999999,
+  "per_class": {
+    "attgan": {
+      "lineage": "celeba",
+      "kind": "editing",
+      "correct_rate": 0.85875
+    },
+    "gdwct": {
+      "lineage": "celeba",
+      "kind": "editing",
+      "correct_rate": 0.93625
+    },
+    "real_celeba": {
+      "lineage": "celeba",
+      "kind": "reale",
+      "correct_rate": 0.95125
+    },
+    "real_ffhq": {
+      "lineage": "ffhq",
+      "kind": "reale",
+      "correct_rate": 0.905
+    },
+    "stargan": {
+      "lineage": "celeba",
+      "kind": "editing",
+      "correct_rate": 0.255
+    },
+    "stylegan2": {
+      "lineage": "ffhq",
+      "kind": "noise",
+      "correct_rate": 0.8975
+    },
+    "stylegan3": {
+      "lineage": "ffhq",
+      "kind": "noise",
+      "correct_rate": 0.8675
+    }
+  }
+}

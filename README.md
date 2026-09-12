@@ -67,13 +67,14 @@ runs/                    checkpoint (gitignorato)
 
 ## 5. Dataset (ricostruito da zero)
 
-6 classi, 2 *lineage*, **3000 immagini per classe a 256×256** (totale **18000**):
+7 classi, 2 *lineage*, **3000 immagini per classe a 256×256** (totale **21000**):
 
 | lineage | classe      | tipo         | origine / generatore                          |
 |---------|-------------|--------------|-----------------------------------------------|
 | celeba  | `real`      | reale        | CelebA (Kaggle `jessicali9530/celeba-dataset`)|
 | celeba  | `stargan`   | editing-GAN  | StarGAN (yunjey), edit *Blond_Hair*           |
 | celeba  | `attgan`    | editing-GAN  | AttGAN (elvisyjlin), edit *Blond_Hair*        |
+| celeba  | `gdwct`     | editing-GAN  | GDWCT (WonwoongCho), estratto dalle griglie    |
 | ffhq    | `real`      | reale        | FFHQ-256 (Kaggle `denislukovnikov/ffhq256...`)|
 | ffhq    | `stylegan2` | noise-GAN    | StyleGAN2-ADA FFHQ (pickle ufficiale), 1024→256 |
 | ffhq    | `stylegan3` | noise-GAN    | StyleGAN3-t FFHQ (pickle ufficiale), 1024→256 |
@@ -185,7 +186,7 @@ StyleGAN3, che rimuove gli artefatti ad alta frequenza che rendono SG2 facile.
 
 ## 10. Roadmap / stato
 
-- [x] **Fase 1** — Ricostruzione dataset (manca solo GDWCT, opzionale)
+- [x] **Fase 1** — Ricostruzione dataset (GDWCT incluso)
 - [x] **Fase 2** — Baseline siamese (ResNet18 + contrastive loss)
 - [x] **Fase 3** — Valutazione e generalizzazione leave-one-architecture-out
 - [?] **Fase 4** — Front-end a residuo *(fatto: high-pass/SRM; da fare: analisi della
@@ -196,6 +197,128 @@ StyleGAN3, che rimuove gli artefatti ad alta frequenza che rendono SG2 facile.
 - [x] **Fase 6** — Confronto col baseline handcrafted sulla stessa prova di
   generalizzazione
 - [x] **Fase 7** — Relazione LaTeX
+- [x] **Fase 8** — Attribuzione dei dati di addestramento (lineage, controlli di ricampionamento/contenuto, sweep a patch)
+
+## 10bis. Fase 8 — Attribuzione dei DATI DI ADDESTRAMENTO
+
+Estensione verso il nuovo articolo. Cambia la domanda: non piu' "quale generatore
+ha prodotto questa immagine" ma **"su quale dataset e' stato addestrato il modello
+che l'ha prodotta"** — il punto in cui si spostano le questioni di copyright e
+privacy, che riguardano i dati di training e non l'opera finale.
+
+Protocollo: pairing `lineage` (le coppie genuine sono immagini della stessa
+lineage, reale o generata), con **attgan, gdwct e stylegan3 tenuti fuori dal
+training** (`configs/dataset_lineage.yaml`). StyleGAN3 e' l'evidenza forte: e' un
+noise-GAN, genera da rumore, quindi qualsiasi "FFHQ-ita'" nel suo output puo'
+venire solo dai dati di addestramento, non da un'immagine di input.
+
+### Il problema: il risultato e' sovra-determinato
+
+Sull'immagine intera l'attribuzione funziona perfettamente (AUC 1.000, StyleGAN3
+mai visto al 99.8%) **ma non dimostra nulla**, perche' tre spiegazioni diverse
+danno tutte lo stesso risultato:
+
+| spiegazione | come si misura | AUC sui mai visti |
+|---|---|---|
+| catena di ricampionamento | lineage CelebA tutta upsampled, FFHQ tutta downsampled | 0.9999 (DCT + logistica) |
+| contenuto semantico | CLIP congelato, **zero addestramento**, centroidi dai soli reali | 0.9976 |
+| traccia di basso livello | il modello addestrato | 1.0000 |
+
+Il ricampionamento e' stato neutralizzato ricostruendo l'intero dataset con una
+catena identica per tutte le classi (`scripts/normalize_pipeline.py`): il
+risultato non si muove. Ma il canale semantico restava indistinguibile da quello
+forense.
+
+### La dissociazione: sweep sulla dimensione della finestra
+
+Rimpicciolendo la finestra di analisi a patch quadrate native (regioni **piatte**,
+dove la semantica e' minima e restano texture e rumore) i tre canali si separano.
+Quota di immagini attribuite alla lineage corretta, **StyleGAN3 mai visto**:
+
+| finestra | deep | handcrafted | zero-shot (semantica) | deep - zero-shot |
+|---|---|---|---|---|
+| 16 px  | 86.9% | 73.3% | 71.2% | +15.6 pt |
+| 32 px  | 96.5% | 80.1% | 63.6% | **+32.9 pt** |
+| 64 px  | 98.9% | 86.2% | 86.8% | +12.1 pt |
+| 128 px | 99.5% | 92.4% | 96.1% | +3.4 pt |
+| 256 px (intera) | 99.8% | 94.2% | 97.8% | +2.0 pt |
+
+Figura e tabella: `report/patch_sweep/`. Riassunto di tutte le run:
+`report/lineage_summary.md`.
+
+**Lettura.** Sull'immagine intera i tre metodi sono indistinguibili e il risultato
+non e' attribuibile a una traccia forense. Al restringersi della finestra il canale
+semantico crolla (fino al 56% in media sui mai visti, praticamente il caso) mentre
+il modello addestrato resta alto: esiste dunque un canale di **basso livello,
+indipendente dal contenuto visibile**, che lega l'immagine generata al dataset di
+addestramento e **trasferisce a generatori mai visti**.
+
+### Controllo finale: patch su griglia fissa
+
+La policy `flat` (varianza minima fra 16 posizioni casuali) ha un difetto: la
+scelta DIPENDE dal contenuto. La figura `report/figures/patch_positions_64.png`
+mostra che il problema non era ipotetico - su CelebA quelle patch cadevano sul
+fondale da studio uniforme, su FFHQ sull'erba: la policy campionava
+preferenzialmente il BACKGROUND, che e' fra le caratteristiche piu' discriminanti
+fra i due dataset.
+
+La policy `grid` elimina il bias: posizioni fisse ai centri dei quadranti,
+IDENTICHE per ogni immagine e per ogni classe (con k=4: 32,32 / 160,32 / 32,160 /
+160,160). Nessuna differenza fra classi puo' derivare da dove si e' guardato.
+
+StyleGAN3 mai visto, patch su griglia fissa:
+
+| finestra | deep | handcrafted | zero-shot | deep - zero-shot |
+|---|---|---|---|---|
+| 16 px  | 93.9% | 75.0% | 73.5% | **+20.4 pt** |
+| 32 px  | 99.0% | 82.2% | 82.2% | +16.8 pt |
+| 64 px  | 99.9% | 86.8% | 95.1% | +4.7 pt |
+| 128 px | 99.9% | 88.2% | 95.1% | +4.7 pt |
+| 256 px (intera) | 99.8% | 94.2% | 97.8% | +2.0 pt |
+
+Figura: `report/grid_sweep/`. **La dissociazione regge**: senza poter scegliere
+dove guardare, a 16 px il canale semantico scende al 73.5% e il modello addestrato
+resta al 93.9%. Le curve su griglia sono anche piu' regolari (monotone in entrambi
+i pannelli) di quelle `flat`, che avevano un calo non monotono a 32 px.
+
+### Caveat
+
+- Il contenuto e' ridotto, non azzerato: anche una patch piatta porta tono della
+  pelle e illuminazione. La dissociazione e' un divario, non un interruttore.
+- Il bias di selezione delle patch e' stato eliminato con la policy `grid`
+  (sopra); la `flat` resta riportata per confronto ma va letta con la cautela
+  del background.
+- Con `flat` la curva zero-shot del solo StyleGAN3 non e' monotona (calo a 32 px):
+  singola classe, quindi rumorosa. Con `grid` entrambi i pannelli sono monotoni.
+- Restano due sole lineage, nessuna noise-GAN addestrata su CelebA e nessuna
+  sorgente a diffusione: il disegno non e' ancora simmetrico.
+
+### Documento della fase
+
+Relazione completa della Fase 8, con tutti gli esperimenti, i controlli, le
+figure e le tabelle: `report/relazione_fase8.pdf` (24 pagine) e la versione
+Markdown `report/relazione_fase8.md`. Si rigenera con:
+
+```bash
+python scripts/build_report.py
+```
+
+Lo script legge i numeri direttamente dai `report.json` degli esperimenti,
+quindi il testo non puo' divergere dai risultati effettivi.
+
+### Come si riproduce
+
+```bash
+python -m src.data.build_manifest --config configs/dataset_lineage.yaml
+python scripts/normalize_pipeline.py --src data/raw --dst data/raw_pm128 --via 128
+python -m src.data.build_manifest --config configs/dataset_lineage_pm128.yaml
+# un punto dello sweep (deep + pavimento + zero-shot)
+python -m src.train.train_siamese --config configs/train_lineage_patch.yaml --patch-size 64
+python -m src.eval.eval_lineage    --checkpoint runs/lineage_patch64_resnet18/best.pt     --manifest data/manifest_lineage_pm128.csv --patch-size 64 --patches-per-image 4
+python -m src.eval.class_signatures --manifest data/manifest_lineage_pm128.csv --patch-size 64
+python -m src.eval.content_baseline --manifest data/manifest_lineage_pm128.csv --patch-size 64
+python -m src.eval.plot_patch_sweep --out report/patch_sweep
+```
 
 ## 11. Note e caveat
 

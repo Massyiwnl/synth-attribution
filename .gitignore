@@ -22,6 +22,11 @@ data/manifest*.csv
 *.pt
 *.pth
 
+# Dump degli embedding: decine di MB, rigenerabili in pochi minuti con
+# src.eval.eval_lineage. I tre file delle fasi 2/3 restano tracciati perche'
+# fanno gia' parte della storia pubblicata.
+report/**/embeddings.npz
+
 # --- Output esperimenti ---
 runs/
 wandb/
