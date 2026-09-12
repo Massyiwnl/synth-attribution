@@ -1,0 +1,45 @@
+# Configurazione training - Fase 8 (attribuzione dei DATI DI ADDESTRAMENTO)
+#
+# Cosa cambia rispetto a configs/train.yaml (attribuzione del generatore):
+#   pairing_policy: lineage   -> coppia GENUINE = stesso dataset di addestramento.
+#                                real_celeba + stargan stanno INSIEME; real_ffhq +
+#                                stylegan2 stanno insieme; le impostore sono
+#                                cross-lineage. E' esattamente il segnale voluto.
+#   lineage_filter: null      -> servono entrambe le lineage (prima le separavamo
+#                                per NEUTRALIZZARE questo segnale; ora e' il target).
+#   freeze_backbone: true     -> il VLM e' un estrattore fisso, si allena solo la testa.
+
+data:
+  manifest: data/manifest_lineage.csv
+  image_size: 256
+  pairing_policy: lineage
+  lineage_filter: null
+  genuine_prob: 0.5
+  num_workers: 4
+  # Augmentation mirata al confound di ricampionamento (resize+JPEG casuali,
+  # stessa distribuzione per tutte le classi): impedisce alla rete di appoggiarsi
+  # alla catena di resize. Complementare al dataset normalizzato offline
+  # (scripts/normalize_pipeline.py), che resta il controllo decisivo.
+  forensic_aug: false
+
+model:
+  backbone: clip_vit_l14      # resnet18 | resnet50 | clip_vit_b16 | clip_vit_l14 | dinov2_vitb14 | dinov2_vitl14
+  pretrained: true
+  freeze_backbone: true       # true per i VLM; false per riallenare le ResNet end-to-end
+  embedding_dim: 128
+  head_hidden: 512            # null = feat_dim (testa identica alle fasi 2/3)
+  head_dropout: 0.1
+  front_end: none             # none | highpass | srm
+  input_policy: crop          # crop = nessun ricampionamento aggiuntivo (default per i VLM)
+
+loss:
+  margin: 1.0
+
+train:
+  epochs: 15                  # con backbone congelato la testa converge in fretta
+  batch_size: 64              # riducilo se la GPU va in out-of-memory (ViT-L/14 e' pesante)
+  lr: 0.0003                  # piu' alto che end-to-end: si allena solo la testa
+  weight_decay: 0.0001
+  seed: 42
+  out_dir: runs/lineage_clip_l14
+  amp: true

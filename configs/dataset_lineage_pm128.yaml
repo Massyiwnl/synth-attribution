@@ -1,0 +1,37 @@
+# Configurazione dataset - Fase 8 (attribuzione dei DATI DI ADDESTRAMENTO)
+#
+# Differenza rispetto a configs/dataset.yaml: qui tre generatori sono tenuti
+# FUORI dal training (holdout_architectures), cioe' tutte le loro immagini
+# finiscono nel test split. Servono a rispondere alla domanda dell'articolo:
+# un generatore MAI VISTO viene comunque ricondotto al dataset su cui e' stato
+# addestrato?
+#
+#   attgan, gdwct  -> holdout lato CelebA. Controllo POSITIVO, ma evidenza debole:
+#                     sono editing-GAN, il loro output contiene gia' i pixel della
+#                     foto CelebA di input. Se cadono su CelebA non prova che il
+#                     TRAINING SET fosse CelebA, solo che l'INPUT lo era.
+#   stylegan3      -> holdout lato FFHQ. E' l'evidenza FORTE: genera da rumore,
+#                     quindi qualsiasi "FFHQ-ita'" nel suo output puo' venire solo
+#                     dai dati di addestramento.
+#
+# Il file manifest e' separato da quello delle fasi 2/3, che resta valido e
+# riproducibile. Lo split e' deterministico PER GRUPPO (build_manifest.py), quindi
+# le classi non in holdout ricevono esattamente lo stesso split di prima.
+
+paths:
+  raw_root: data/raw_pm128                   # -> data/raw_pmNNN per il test di controllo
+  manifest: data/manifest_lineage_pm128.csv
+
+image:
+  size: 256
+
+lineage:
+  celeba: [stargan, attgan, gdwct]
+  ffhq:   [stylegan2, stylegan3]
+aligned_architectures: [stargan, attgan]
+noise_architectures:   [gdwct, stylegan2, stylegan3]
+
+split:
+  seed: 42
+  ratios: {train: 0.70, val: 0.15, test: 0.15}
+  holdout_architectures: [attgan, gdwct, stylegan3]

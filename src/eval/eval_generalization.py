@@ -28,19 +28,14 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score
 
 from src.data.siamese_dataset import SingleImageDataset
-from src.models.siamese import SiameseEncoder
+from src.models.siamese import load_encoder
 
 
 @torch.no_grad()
 def embed_test(checkpoint, manifest, lineage, size, device, batch_size, num_workers):
-    ckpt = torch.load(checkpoint, map_location=device, weights_only=False)
-    mcfg = ckpt["cfg"]["model"]
-    model = SiameseEncoder(mcfg["backbone"], mcfg["pretrained"], mcfg["embedding_dim"],
-                           front_end=mcfg.get("front_end", "none")).to(device)
-    model.load_state_dict(ckpt["model"])
-    model.eval()
-
-    ds = SingleImageDataset(manifest, "test", size, lineage_filter=lineage)
+    model, spec, epoch = load_encoder(checkpoint, device)
+    ds = SingleImageDataset(manifest, "test", spec, lineage_filter=lineage,
+                            image_size=size)
     loader = DataLoader(ds, batch_size=batch_size, shuffle=False,
                         num_workers=num_workers, pin_memory=(device == "cuda"))
     Z = []
@@ -48,7 +43,7 @@ def embed_test(checkpoint, manifest, lineage, size, device, batch_size, num_work
         Z.append(model.forward_one(x.to(device)).cpu().numpy())
     Z = np.concatenate(Z).astype(np.float32)
     arch = ds.df["architecture"].to_numpy()
-    return Z, arch, ckpt.get("epoch")
+    return Z, arch, epoch
 
 
 def balance(Z, arch, n_per_class, seed=0):

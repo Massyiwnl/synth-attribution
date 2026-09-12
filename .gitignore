@@ -12,8 +12,11 @@ env/
 
 # --- Dati e pesi: NON committare (GB di immagini / checkpoint) ---
 data/raw/
+# dataset a pipeline normalizzata (scripts/normalize_pipeline.py)
+data/raw_pm*/
+data/ffhq1024_subset/
 data/processed/
-data/manifest.csv
+data/manifest*.csv
 *.ckpt
 *.pkl
 *.pt

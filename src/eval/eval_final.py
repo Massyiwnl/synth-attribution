@@ -30,7 +30,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import confusion_matrix, accuracy_score
 
 from src.data.siamese_dataset import SingleImageDataset
-from src.models.siamese import SiameseEncoder
+from src.models.siamese import load_encoder
 
 
 def class_labels(df):
@@ -43,12 +43,9 @@ def class_labels(df):
 
 @torch.no_grad()
 def embed(checkpoint, manifest, split, size, device, bs, nw):
-    ckpt = torch.load(checkpoint, map_location=device, weights_only=False)
-    m = ckpt["cfg"]["model"]
-    model = SiameseEncoder(m["backbone"], m["pretrained"], m["embedding_dim"],
-                           front_end=m.get("front_end", "none")).to(device)
-    model.load_state_dict(ckpt["model"]); model.eval()
-    ds = SingleImageDataset(manifest, split, size, lineage_filter=None)
+    model, spec, _ = load_encoder(checkpoint, device)
+    ds = SingleImageDataset(manifest, split, spec, lineage_filter=None,
+                            image_size=size)
     loader = DataLoader(ds, batch_size=bs, shuffle=False, num_workers=nw)
     Z = [model.forward_one(x.to(device)).cpu().numpy() for x, _ in loader]
     return np.concatenate(Z).astype(np.float32), class_labels(ds.df)

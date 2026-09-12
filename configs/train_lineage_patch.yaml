@@ -1,0 +1,59 @@
+# Configurazione training - Fase 8, variante A PATCH
+#
+# Perche'. Sull'immagine intera l'attribuzione di lineage e' SOVRA-DETERMINATA:
+# due spiegazioni indipendenti funzionano entrambe e non sono separabili.
+#   - contenuto: CLIP zero-shot, senza alcun addestramento, assegna StyleGAN3 a
+#     FFHQ nel 98% dei casi. La somiglianza e' visibile a occhio.
+#   - basso livello: ResNet18 su residuo high-pass fa 100% sui mai visti.
+# Finche' entrambe reggono, non si puo' sostenere che l'attribuzione sia forense
+# e non percettiva.
+#
+# Le patch rompono il pareggio: un ritaglio 64x64 di una regione PIATTA (guancia,
+# fronte, fondo) non porta quasi nessuna semantica - niente inquadratura, niente
+# demografia, niente composizione - ma conserva texture, rumore e traccia del
+# generatore. Se il modello addestrato su patch continua ad attribuire i
+# generatori mai visti MENTRE il baseline zero-shot crolla, la dissociazione
+# e' pulita e il canale di basso livello e' dimostrato.
+#
+# Backbone: ResNet18. E' completamente convoluzionale, quindi riceve la patch a
+# 64x64 NATIVI senza reinterpolare nulla. Un ViT/VLM richiederebbe 224 e quindi
+# un upsampling 64->224, che distruggerebbe proprio la traccia da misurare.
+# (Il baseline zero-shot su patch usa invece CLIP con quell'upsampling di
+# proposito: cosi' misura la sola semantica residua, che e' il suo scopo.)
+#
+# Dataset: il manifest pm128, cosi' il confound di ricampionamento e' gia'
+# neutralizzato e la patch aggiunge il controllo sul contenuto.
+
+data:
+  manifest: data/manifest_lineage_pm128.csv
+  image_size: 256               # risoluzione dell'immagine da cui si ritaglia
+  patch_size: 64                # <- la vera risoluzione d'ingresso del backbone
+  patches_per_image: 4          # espande il train set: 8400 -> 33600 campioni
+  patch_policy: flat            # flat | random
+  pairing_policy: lineage
+  lineage_filter: null
+  genuine_prob: 0.5
+  num_workers: 4
+  forensic_aug: false
+
+model:
+  backbone: resnet18
+  pretrained: true
+  freeze_backbone: false        # end-to-end: deve adattarsi a 64px e alla texture
+  embedding_dim: 128
+  head_hidden: 512
+  head_dropout: 0.1
+  front_end: none               # none | highpass | srm
+  input_policy: crop            # a 64px e' un no-op: nessun ricampionamento
+
+loss:
+  margin: 1.0
+
+train:
+  epochs: 15
+  batch_size: 128               # le patch sono piccole: batch piu' grande
+  lr: 0.0003
+  weight_decay: 0.0001
+  seed: 42
+  out_dir: runs/lineage_patch64_resnet18
+  amp: true

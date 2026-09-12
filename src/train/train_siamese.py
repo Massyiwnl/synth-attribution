@@ -1,11 +1,16 @@
 """
-train_siamese.py - Fase 2/3
-Allena la rete siamese (ResNet18 + contrastive loss) per l'attribution.
-Validazione con metriche SEPARATE per within-celeba / within-ffhq / overall, cosi'
-da distinguere la traccia generativa (within-lineage) dal confound di dataset.
+train_siamese.py - Fasi 2/3/8
+Allena la rete siamese (backbone + contrastive loss) per l'attribuzione, in due
+regimi a seconda di data.pairing_policy:
+  - "architecture" -> attribuzione del GENERATORE (fasi 2/3). Validazione con
+    metriche SEPARATE within-celeba / within-ffhq / overall, e selezione del best
+    sulle within-lineage: l'overall sarebbe gonfiata dal confound cross-lineage.
+  - "lineage"      -> attribuzione dei DATI DI ADDESTRAMENTO (fase 8). Qui le
+    coppie impostore sono cross-lineage per costruzione (e' il segnale voluto),
+    quindi la metrica di selezione corretta e' l'overall.
 
-Il modello migliore viene scelto sulla media delle AUC within-lineage disponibili
-(la metrica onesta), non sull'overall (gonfiato dal confound cross-lineage).
+Il backbone puo' essere allenabile (resnet18/50) o CONGELATO (clip_*, dinov2_*),
+nel qual caso si allena solo la testa di proiezione.
 
 Uso (dalla radice, con .venv + torch GPU):
   python -m src.train.train_siamese --config configs/train.yaml
@@ -21,8 +26,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score, roc_curve
 
-from src.data.siamese_dataset import SiamesePairDataset
+from src.data.siamese_dataset import SiamesePairDataset, LINEAGE_POLICIES
 from src.models.siamese import SiameseEncoder
+from src.models.backbones import is_timm
 from src.losses.contrastive import ContrastiveLoss
 
 
@@ -82,6 +88,16 @@ def main():
     ap.add_argument("--only-fake", default=None, help="allena su reali + SOLO questo generatore")
     ap.add_argument("--out", default=None, help="cartella di output (override train.out_dir)")
     ap.add_argument("--epochs", type=int, default=None)
+    ap.add_argument("--backbone", default=None, help="override model.backbone")
+    ap.add_argument("--manifest", default=None, help="override data.manifest")
+    ap.add_argument("--freeze-backbone", dest="freeze", action="store_true", default=None)
+    ap.add_argument("--no-freeze-backbone", dest="freeze", action="store_false")
+    ap.add_argument("--forensic-aug", dest="aug", action="store_true", default=None)
+    ap.add_argument("--front-end", default=None, help="none | highpass | srm")
+    ap.add_argument("--patch-size", type=int, default=None)
+    ap.add_argument("--patches-per-image", type=int, default=None)
+    ap.add_argument("--patch-policy", default=None, help="flat | random | grid")
+    ap.add_argument("--batch-size", type=int, default=None)
     args = ap.parse_args()
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
@@ -92,6 +108,28 @@ def main():
         cfg["train"]["out_dir"] = args.out
     if args.epochs is not None:
         cfg["train"]["epochs"] = args.epochs
+    if args.manifest is not None:
+        cfg["data"]["manifest"] = args.manifest
+    if args.aug is not None:
+        cfg["data"]["forensic_aug"] = args.aug
+    if args.backbone is not None:
+        cfg["model"]["backbone"] = args.backbone
+        # default sensato: i VLM si usano congelati, le ResNet end-to-end.
+        # Un --freeze-backbone / --no-freeze-backbone esplicito ha la precedenza.
+        if args.freeze is None:
+            cfg["model"]["freeze_backbone"] = is_timm(args.backbone)
+    if args.freeze is not None:
+        cfg["model"]["freeze_backbone"] = args.freeze
+    if args.front_end is not None:
+        cfg["model"]["front_end"] = args.front_end
+    if args.patch_size is not None:
+        cfg["data"]["patch_size"] = args.patch_size
+    if args.patches_per_image is not None:
+        cfg["data"]["patches_per_image"] = args.patches_per_image
+    if args.patch_policy is not None:
+        cfg["data"]["patch_policy"] = args.patch_policy
+    if args.batch_size is not None:
+        cfg["train"]["batch_size"] = args.batch_size
     only_fake = args.only_fake
 
     set_seed(cfg["train"]["seed"])
@@ -101,26 +139,59 @@ def main():
         print("ATTENZIONE: nessuna GPU, training molto lento. Reinstalla torch con CUDA.")
 
     d = cfg["data"]
+    mc = cfg["model"]
     seed = cfg["train"]["seed"]
     lf = d.get("lineage_filter") or None
-    print(f"Policy: {d['pairing_policy']}  lineage_filter: {lf}  only_fake: {only_fake}")
-    train_ds = SiamesePairDataset(d["manifest"], "train", d["image_size"],
-                                  policy=d["pairing_policy"], genuine_prob=d["genuine_prob"],
-                                  seed=seed, lineage_filter=lf, only_fake=only_fake)
-    val_ds = SiamesePairDataset(d["manifest"], "val", d["image_size"],
-                                policy=d["pairing_policy"], genuine_prob=0.5,
-                                seed=seed, lineage_filter=lf, only_fake=only_fake)
+    policy = d["pairing_policy"]
+
+    # con le patch e' la patch la vera risoluzione d'ingresso del backbone:
+    # cosi' una CNN la riceve a dimensione nativa e il transform non reinterpola
+    patch = d.get("patch_size") or None
+    eff_size = patch or d["image_size"]
+
+    # il modello va costruito PRIMA dei dataset: e' il backbone a dettare
+    # risoluzione e normalizzazione delle immagini (BackboneSpec)
+    model = SiameseEncoder(mc["backbone"], mc["pretrained"], mc["embedding_dim"],
+                           front_end=mc.get("front_end", "none"),
+                           freeze_backbone=mc.get("freeze_backbone", False),
+                           image_size=eff_size,
+                           head_hidden=mc.get("head_hidden"),
+                           head_dropout=mc.get("head_dropout", 0.0),
+                           input_policy=mc.get("input_policy")).to(device)
+    spec = model.spec
+    n_all = sum(p.numel() for p in model.parameters())
+    n_tr = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Backbone: {mc['backbone']} (feat={model.feat_dim}, "
+          f"{'CONGELATO' if model.frozen else 'allenabile'}) | input {spec.input_size}px "
+          f"policy={spec.input_policy}")
+    print(f"Parametri: {n_tr/1e6:.2f}M allenabili su {n_all/1e6:.2f}M totali")
+
+    print(f"Policy: {policy}  lineage_filter: {lf}  only_fake: {only_fake}")
+    aug = bool(d.get("forensic_aug", False))
+    if aug:
+        print("ForensicJitter ATTIVO in training (resample+JPEG casuali su tutte le classi)")
+    pk = dict(patch_size=patch, patches_per_image=d.get("patches_per_image", 1),
+              patch_policy=d.get("patch_policy", "flat"))
+    if patch:
+        print(f"PATCH {patch}x{patch} nativa, policy={pk['patch_policy']}, "
+              f"{pk['patches_per_image']} per immagine")
+    train_ds = SiamesePairDataset(d["manifest"], "train", spec,
+                                  policy=policy, genuine_prob=d["genuine_prob"],
+                                  seed=seed, lineage_filter=lf, only_fake=only_fake,
+                                  image_size=eff_size, forensic_aug=aug, **pk)
+    val_ds = SiamesePairDataset(d["manifest"], "val", spec,
+                                policy=policy, genuine_prob=0.5,
+                                seed=seed, lineage_filter=lf, only_fake=only_fake,
+                                image_size=eff_size, **pk)
     print(f"Coppie: train={len(train_ds)}  val={len(val_ds)}")
+    print("Gruppi di pairing:", {k: len(v) for k, v in sorted(train_ds.groups.items())})
     train_loader = DataLoader(train_ds, batch_size=cfg["train"]["batch_size"], shuffle=True,
                               num_workers=d["num_workers"], pin_memory=True, drop_last=True)
     val_loader = DataLoader(val_ds, batch_size=cfg["train"]["batch_size"], shuffle=False,
                             num_workers=d["num_workers"], pin_memory=True)
 
-    model = SiameseEncoder(cfg["model"]["backbone"], cfg["model"]["pretrained"],
-                           cfg["model"]["embedding_dim"],
-                           front_end=cfg["model"].get("front_end", "none")).to(device)
     criterion = ContrastiveLoss(cfg["loss"]["margin"])
-    opt = torch.optim.AdamW(model.parameters(), lr=cfg["train"]["lr"],
+    opt = torch.optim.AdamW(model.trainable_parameters(), lr=cfg["train"]["lr"],
                             weight_decay=cfg["train"]["weight_decay"])
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=cfg["train"]["epochs"])
     use_amp = bool(cfg["train"].get("amp", True)) and device == "cuda"
@@ -145,14 +216,36 @@ def main():
         print(fmt("overall", m["overall"]))
         print(fmt("within_celeba", m["within_celeba"]))
         print(fmt("within_ffhq", m["within_ffhq"]))
-        within = [b["auc"] for b in (m["within_celeba"], m["within_ffhq"]) if b]
-        score = float(np.mean(within)) if within else m["overall"]["auc"]
+        # Quale AUC usare per scegliere il best dipende dal task:
+        #  - pairing per ARCHITETTURA: l'overall e' gonfiata dalle coppie impostore
+        #    cross-lineage (banali), quindi si seleziona sulle within-lineage;
+        #  - pairing per LINEAGE: le impostore SONO per definizione cross-lineage
+        #    (e' proprio il segnale che vogliamo), i bucket within degenerano a sole
+        #    coppie genuine -> bucket() torna None. Qui l'overall E' la metrica giusta.
+        if policy in LINEAGE_POLICIES:
+            score = m["overall"]["auc"]
+        else:
+            within = [b["auc"] for b in (m["within_celeba"], m["within_ffhq"]) if b]
+            score = float(np.mean(within)) if within else m["overall"]["auc"]
 
-        torch.save({"model": model.state_dict(), "epoch": epoch, "cfg": cfg}, out / "last.pt")
+        # Con backbone congelato i suoi pesi sono identici a quelli pre-addestrati:
+        # salvarli renderebbe ogni checkpoint da ~1.2 GB per ViT-L/14. Si salva
+        # quindi il solo stato addestrabile; load_encoder ricostruisce il backbone
+        # da timm e carica il resto con strict=False.
+        def _state():
+            if not model.frozen:
+                return model.state_dict(), False
+            keep = {k: v for k, v in model.state_dict().items()
+                    if not k.startswith("backbone.")}
+            return keep, True
+
+        st, partial = _state()
+        torch.save({"model": st, "partial": partial, "epoch": epoch, "cfg": cfg},
+                   out / "last.pt")
         if score > best:
             best = score
-            torch.save({"model": model.state_dict(), "epoch": epoch, "cfg": cfg, "val": m},
-                       out / "best.pt")
+            torch.save({"model": st, "partial": partial, "epoch": epoch,
+                        "cfg": cfg, "val": m}, out / "best.pt")
             print(f"  -> nuovo best (score within-lineage={best:.4f}) salvato")
 
     print(f"Fine. Best score within-lineage: {best:.4f}")

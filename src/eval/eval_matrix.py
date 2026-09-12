@@ -32,18 +32,14 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve
 
 from src.data.siamese_dataset import SingleImageDataset
-from src.models.siamese import SiameseEncoder
+from src.models.siamese import load_encoder
 
 
 @torch.no_grad()
 def embed_test(checkpoint, manifest, size, device, batch_size, num_workers):
-    ckpt = torch.load(checkpoint, map_location=device, weights_only=False)
-    mcfg = ckpt["cfg"]["model"]
-    model = SiameseEncoder(mcfg["backbone"], mcfg["pretrained"], mcfg["embedding_dim"],
-                           front_end=mcfg.get("front_end", "none")).to(device)
-    model.load_state_dict(ckpt["model"])
-    model.eval()
-    ds = SingleImageDataset(manifest, "test", size, lineage_filter=None)  # tutte le lineage
+    model, spec, epoch = load_encoder(checkpoint, device)
+    ds = SingleImageDataset(manifest, "test", spec, lineage_filter=None,
+                            image_size=size)  # tutte le lineage
     loader = DataLoader(ds, batch_size=batch_size, shuffle=False,
                         num_workers=num_workers, pin_memory=(device == "cuda"))
     Z = []
@@ -52,7 +48,7 @@ def embed_test(checkpoint, manifest, size, device, batch_size, num_workers):
     Z = np.concatenate(Z).astype(np.float32)
     arch = ds.df["architecture"].to_numpy()
     src = ds.df["source_dataset"].to_numpy()
-    return Z, arch, src, ckpt.get("epoch")
+    return Z, arch, src, epoch
 
 
 def subsample(idx, n, rng):
