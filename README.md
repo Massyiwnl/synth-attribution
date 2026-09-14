@@ -293,6 +293,33 @@ i pannelli) di quelle `flat`, che avevano un calo non monotono a 32 px.
 - Restano due sole lineage, nessuna noise-GAN addestrata su CelebA e nessuna
   sorgente a diffusione: il disegno non e' ancora simmetrico.
 
+### Il caso limite: addestrare sui soli dati autentici
+
+Negli esperimenti precedenti il modello, pur non conoscendo i tre generatori in
+holdout, ne aveva visti due (StarGAN e StyleGAN2). Si puo' quindi obiettare che
+abbia imparato qualcosa sulle immagini generate in quanto tali. La variante
+`configs/dataset_lineage_realonly.yaml` elimina l'obiezione: **tutti e cinque i
+generatori sono in holdout**, il training contiene esclusivamente immagini
+autentiche e il modello non incontra mai un'immagine sintetica.
+
+E' anche lo scenario reale di chi lamenta l'uso dei propri dati: ha soltanto il
+proprio archivio, non il generatore sospetto.
+
+Quota di StyleGAN3 (noise-GAN, mai visto in entrambe le configurazioni)
+attribuito alla lineage corretta:
+
+| regime | con 2 generatori in training | **con soli dati autentici** | pavimento (soli reali) |
+|---|---|---|---|
+| immagine intera | 99.8% | **100.0%** | 91.0% |
+| patch 64 px, griglia | 99.9% | **99.9%** | 80.2% |
+| patch 16 px, griglia | 93.9% | **89.2%** | 67.8% |
+
+Togliere i generatori dal training costa al modello fra 0 e 4.6 punti, ma costa
+molto di piu' al pavimento handcrafted, che senza esempi generati non puo' piu'
+calibrarsi: **il margine cresce** (su patch 64 px da +13.1 a +19.6 punti). Il
+segnale, quindi, vive nei dati autentici e non nell'esposizione a esempi
+sintetici. Dettagli in Sez. 8 della relazione.
+
 ### Documento della fase
 
 Relazione completa della Fase 8, con tutti gli esperimenti, i controlli, le

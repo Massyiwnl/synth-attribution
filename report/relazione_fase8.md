@@ -6,7 +6,7 @@
 | Contesto | Estensione sperimentale verso un articolo a impianto giuridico |
 | Base di partenza | Cassia et al., *Deepfake Forensic Analysis: Source Dataset Attribution and Legal Implications of Synthetic Media Manipulation*, arXiv:2505.11110 (tesi triennale) + progetto di Multimedia Forensics (LM-18, Catania) |
 | Dataset | 21.000 immagini, 7 classi, 2 lineage, 256x256 |
-| Esperimenti | 16 modelli addestrati, 10 pavimenti handcrafted, 10 baseline zero-shot, 2 analisi Grad-CAM |
+| Esperimenti | 19 modelli addestrati, 13 pavimenti handcrafted, 13 baseline zero-shot, 2 analisi Grad-CAM |
 
 
 > **Risultato in una frase.** Esiste un canale di basso livello, indipendente dal contenuto visibile e dalla catena di ricampionamento, che lega un'immagine generata al dataset su cui il generatore è stato addestrato, e che **trasferisce a generatori mai visti in addestramento**: su un riquadro 16x16 in posizione fissa, dove la somiglianza semantica arriva al 73.5% e un descrittore spettrale al 75.0%, la metrica addestrata attribuisce correttamente il 93.9% delle immagini di StyleGAN3 - un generatore che non ha mai visto e che, partendo da rumore, dai dati di addestramento ha ereditato tutto.
@@ -114,6 +114,24 @@ Per questo, in tutto il documento, la colonna che conta è quella di **StyleGAN3
 La rete siamese non classifica: impara una **funzione di embedding** in cui la distanza fra due immagini riflette la loro appartenenza alla stessa sorgente. Ciò che determina *cosa* impara è la definizione di coppia genuina. La fase precedente usava il **pairing per architettura** (genuina = stesso generatore), che spinge deliberatamente *lontano* real_celeba da StarGAN.
 
 La Fase 8 introduce il **pairing per lineage**: due immagini formano una coppia genuina se appartengono alla stessa lineage, **indipendentemente dal generatore**. real_celeba, StarGAN, AttGAN e GDWCT sono quindi tutti *positivi fra loro*; real_ffhq, StyleGAN2 e StyleGAN3 fra loro; le coppie impostore sono cross-lineage. La rete è così costretta a cercare **ciò che un dataset e i modelli addestrati su di esso hanno in comune**, ignorando la firma del singolo generatore. È esattamente la relazione che il task di classificazione piatto della tesi triennale non poteva modellare.
+
+
+**Che cosa cambia, concretamente, per i dati reali**
+
+È il punto che distingue questo lavoro dal precedente, e vale la pena renderlo misurabile. Nel task di classificazione piatto della tesi triennale **real_celeba e StarGAN erano due classi diverse**: la supervisione insegnava a separarle, quindi il modello non poteva costruire alcuna nozione di appartenenza fra un dataset e i modelli addestrati su di esso. Con il pairing per lineage sono la **stessa classe**, e la loss le avvicina esplicitamente.
+
+
+|  | valore |
+|---|---|
+| immagini nel training | 8400 |
+| di cui reali | **4200 (50%)** |
+| di cui generate | 4200 (50%) |
+| coppie genuine (generata, generata) | 1045 (25.2%) |
+| coppie genuine (reale, generata) | **2123 (51.1%)** |
+| coppie genuine (reale, reale) | 983 (23.7%) |
+
+
+> **Il 51.1% delle coppie che la rete impara ad avvicinare è formato da una fotografia autentica e un'immagine generata.** I dati reali non sono una classe fra le altre: sono l'**ancoraggio** rispetto a cui tutto il resto viene misurato. Nel task piatto precedente quella stessa coppia era un esempio **negativo**. Misurabile con `python -m src.eval.pairing_stats`.
 
 Nota tecnica: con questa politica le coppie impostore sono per costruzione cross-lineage, quindi i *bucket* di valutazione within-lineage della fase precedente degenerano. La metrica corretta di selezione del modello migliore diventa l'AUC complessiva - il contrario di quanto valeva per l'attribuzione del generatore, dove l'AUC complessiva era gonfiata dal confound cross-lineage.
 
@@ -344,7 +362,80 @@ La versione con selezione per varianza minima è riportata come ablazione. I div
 Due osservazioni. Le curve su griglia fissa sono **monotone in entrambi i pannelli**, mentre quelle per varianza hanno un calo non monotono a 32 pixel sulla singola classe StyleGAN3: la griglia è anche il protocollo più stabile. E la famiglia di descrittori che costituisce il pavimento **cambia con la scala** - il residuo high-pass sulle finestre piccole, la DCT 2D su quelle grandi - il che è coerente: sulle finestre piccole conta la texture locale, su quelle grandi la struttura spettrale globale.
 
 
-## 8. Che cosa cattura il modello
+## 8. Il caso limite: addestrare sui soli dati autentici
+
+In tutti gli esperimenti visti finora il modello, pur non conoscendo i tre generatori held-out, ne aveva visti **due**: StarGAN e StyleGAN2 erano nel training set. Si può quindi obiettare che il sistema abbia imparato qualcosa sulle immagini generate in quanto tali, e non soltanto sui dati che le hanno prodotte.
+
+Questa sezione elimina l'obiezione nel modo più radicale: il training contiene **esclusivamente immagini autentiche**. Il modello vede solo real_celeba e real_ffhq, impara unicamente a distinguere CelebA autentico da FFHQ autentico, e **non incontra mai una singola immagine generata**. Poi si verifica dove cadono i cinque generatori, tutti quindi mai visti. Con questa configurazione StyleGAN2 e StyleGAN3 diventano **entrambi** evidenza forte: sono noise-GAN, generano da rumore, e nessuno dei due è mai stato mostrato al modello.
+
+
+> **Perché è la variante decisiva, e non solo la più pulita.** È lo scenario reale di chi lamenta l'uso dei propri dati: **ha soltanto i propri dati**. Non possiede il generatore sospetto, non ha le immagini che ha prodotto, non può addestrare nulla su di esse. Se una metrica costruita sui soli dati autentici riconosce comunque un generatore addestrato su quei dati, la pretesa diventa sostenibile **senza richiedere accesso al modello sospetto** - cioè esattamente nella situazione in cui la parte lesa si trova prima di qualunque richiesta di accesso.
+
+
+### 8.1 Protocollo
+
+
+|  | in addestramento | solo in test (mai visti) |
+|---|---|---|
+| lineage celeba | **real_celeba** (2130 immagini) | stargan, attgan, gdwct |
+| lineage ffhq | **real_ffhq** (2070 immagini) | **stylegan2, stylegan3** (noise-GAN) |
+
+Configurazione in `configs/dataset_lineage_realonly.yaml`: tutti e cinque i generatori in `holdout_architectures`. Dataset a ricampionamento normalizzato, quindi quel confound resta neutralizzato. Tre regimi, per poterli confrontare con le curve della Sezione 7.
+
+
+### 8.2 Risultati
+
+
+| regime | AUC (5 generatori mai visti) | acc. | StyleGAN3 | noise-GAN (SG2+SG3) | editing-GAN |
+|---|---|---|---|---|---|
+| immagine intera (256 px) | 1.0000 | 100.0% | **100.0%** | 100.0% | 100.0% |
+| patch 64 px, griglia fissa | 0.9991 | 98.4% | **99.9%** | 99.9% | 97.3% |
+| patch 16 px, griglia fissa | 0.9446 | 84.7% | **89.2%** | 91.0% | 80.5% |
+
+
+### 8.3 Confronto con il regime a due generatori visti
+
+La domanda che conta è quanto si perde togliendo i due generatori dal training. Quota di StyleGAN3 - mai visto in entrambi i casi - attribuito alla lineage corretta:
+
+
+| regime | con StarGAN e StyleGAN2 in training | **con soli dati autentici** | differenza |
+|---|---|---|---|
+| immagine intera (256 px) | 99.8% | 100.0% | +0.2 pt |
+| patch 64 px, griglia fissa | 99.9% | 99.9% | +0.0 pt |
+| patch 16 px, griglia fissa | 93.9% | 89.2% | -4.6 pt |
+
+
+### 8.4 Il pavimento e la semantica, sullo stesso protocollo
+
+Come nelle sezioni precedenti, il numero del modello va letto contro i due riferimenti. Qui entrambi sono calcolati con lo stesso vincolo: la regressione logistica del pavimento è allenata sui soli reali, e il baseline zero-shot usa per costruzione i soli reali come centroidi.
+
+
+| regime | deep (soli reali) | handcrafted | zero-shot | famiglia pavimento |
+|---|---|---|---|---|
+| immagine intera (256 px) | **100.0%** | 91.0% | 97.5% | residual |
+| patch 64 px, griglia fissa | **99.9%** | 80.2% | 94.1% | all |
+| patch 16 px, griglia fissa | **89.2%** | 67.8% | 73.2% | dct |
+
+
+### 8.5 Lettura
+
+Il risultato risponde a un'obiezione precisa: l'attribuzione non dipende dall'aver visto immagini generate. Un modello che conosce **soltanto come sono fatte le fotografie autentiche** di due dataset riconduce alla sorgente corretta anche generatori che non ha mai incontrato, compresi due noise-GAN che non hanno mai ricevuto un'immagine in ingresso.
+
+C'è però un dato più interessante della semplice tenuta, e riguarda il **costo** che ciascun metodo paga quando i due generatori vengono tolti dal training. Il modello addestrato non perde quasi nulla; il descrittore handcrafted, che senza esempi generati non può più calibrarsi su di essi, perde molto. Il margine quindi **cresce**:
+
+
+| regime | costo per il deep | costo per l'handcrafted | margine con 2 gen. visti | margine con soli reali |
+|---|---|---|---|---|
+| immagine intera (256 px) | +0.2 pt | -3.2 pt | +5.5 pt | **+9.0 pt** |
+| patch 64 px, griglia fissa | +0.0 pt | -6.5 pt | +13.1 pt | **+19.6 pt** |
+| patch 16 px, griglia fissa | -4.6 pt | -7.3 pt | +18.9 pt | **+21.5 pt** |
+
+Su patch 64 px il margine sul pavimento **cresce di oltre sei punti** pur avendo tolto due generatori dal training. La lettura è che la metrica appresa dipende dall'aver visto esempi sintetici **molto meno** di quanto ne dipenda un descrittore spettrale: ciò che le serve è già contenuto nei dati autentici. Un caso isolato lo rende evidente: sul dataset originale il pavimento handcrafted attribuisce StarGAN alla lineage sbagliata nel 69.5% dei casi (30.5% corretti sull'immagine intera), mentre il modello addestrato sui soli reali lo colloca correttamente nel 100%.
+
+Va detto con altrettanta chiarezza che questa configurazione **non elimina** le spiegazioni concorrenti già discusse: il confronto con il pavimento handcrafted e con il baseline zero-shot resta il metro di giudizio, e vale qui esattamente come nella Sezione 7. Il contributo specifico di questa sezione è un altro: mostra che il segnale **vive nei dati autentici**, non nell'esposizione a esempi sintetici.
+
+
+## 9. Che cosa cattura il modello
 
 
 ### 8.1 Grad-CAM media per classe
@@ -385,7 +476,7 @@ La richiesta prevedeva anche: *possiamo aggiungere anche qualcosa con il dominio
 Il dato più utile di questa analisi è **quale** famiglia porta il segnale, perché dice di che natura è la traccia. Il colore è debole in ogni configurazione (AUC 0.63-0.69 sui mai visti): la differenza fra lineage **non** è cromatica. La DCT 2D è la più forte sulle finestre grandi, il residuo high-pass sulle finestre piccole. Il profilo radiale, che è in pratica una firma di ricampionamento, perde molto quando la pipeline viene normalizzata (da 0.962 a 0.893) - una conferma indipendente che il controllo della Sezione 6.1 ha effettivamente rimosso quel confound.
 
 
-## 9. Confronto fra architetture
+## 10. Confronto fra architetture
 
 La richiesta prevedeva *una comparison magari con altre architetture, anche riusando la ResNet o altre architetture che esistono*. Il codice espone un registry in cui ogni backbone dichiara la propria risoluzione e normalizzazione, così che lo stesso protocollo possa girare invariato su tutti. I backbone VLM e self-supervised vengono **congelati** (si allena solo la testa), le ResNet **end-to-end**: è la distinzione richiesta.
 
@@ -408,7 +499,7 @@ Questo è a sua volta un risultato, e va detto esplicitamente nell'articolo: **l
 Il regime in cui le architetture si differenzierebbero è quello a patch piccole. Là però il confronto con i ViT sarebbe sleale: un backbone che attende 224 pixel richiederebbe di ingrandire una patch da 16 o 32 pixel, distruggendo proprio la traccia di alta frequenza che si vuole misurare. Per questo lo sweep usa ResNet18, che riceve la patch a risoluzione nativa. Un confronto onesto a bassa risoluzione richiede backbone convoluzionali, ed è una estensione naturale.
 
 
-## 10. Il ponte con l'analisi giuridica
+## 11. Il ponte con l'analisi giuridica
 
 Questa sezione non svolge l'analisi giuridica, che è di competenza altrui. Elenca **cosa l'evidenza tecnica sostiene e cosa no**, nella forma più utilizzabile possibile.
 
@@ -417,6 +508,7 @@ Questa sezione non svolge l'analisi giuridica, che è di competenza altrui. Elen
 
 - Data un'immagine sintetica, è possibile ricondurla al **dataset su cui il generatore è stato addestrato**, con accuratezza superiore al 99% sull'immagine intera e del 93.9% su un riquadro di 16x16 pixel.
 - La capacità **trasferisce a generatori mai visti**: il sistema non ha bisogno di conoscere il modello che ha prodotto l'immagine. È la proprietà decisiva per l'uso pratico, perché in un caso reale il modello sospetto tipicamente non è disponibile.
+- **Non serve nemmeno disporre di immagini generate.** Un modello addestrato sui soli dati autentici, che non ha mai visto una singola immagine sintetica, riconduce comunque alla sorgente corretta cinque generatori diversi (Sezione 8). È la condizione in cui si trova chi lamenta l'uso dei propri dati prima di qualunque richiesta di accesso: possiede soltanto il proprio archivio autentico.
 - Il risultato **non è** un artefatto di preprocessing: sopravvive alla normalizzazione della catena di ricampionamento su tutte le classi.
 - Il risultato **non è** soltanto somiglianza visibile: su finestre piccole la somiglianza semantica cala di oltre venti punti mentre il sistema tiene.
 - La decisione ha un **tasso d'errore noto e misurato su dati mai visti**: soglia calibrata al punto di Equal Error Rate sulle sole classi viste, poi falsi positivi e falsi negativi riportati separatamente.
@@ -437,7 +529,7 @@ Un elemento merita attenzione. Il sistema non produce un'etichetta ma una **dist
 Analogamente, la distinzione fra editing-GAN e noise-GAN (Sezione 3.1) non è un dettaglio tecnico ma **due livelli di pretesa diversi**. Quando l'output contiene i pixel di una fotografia reale, la pretesa riguarda quella fotografia e assomiglia a un'opera derivata. Quando l'output nasce da rumore, la pretesa riguarda **il dataset**, ed è la questione nuova. Tenerle separate nell'articolo evita di rivendicare per la seconda la solidità della prima.
 
 
-## 11. Limiti e lavori futuri
+## 12. Limiti e lavori futuri
 
 - **Il contenuto è ridotto, non azzerato.** A 16 pixel il canale semantico resta al 73.5%: anche un riquadro piccolo porta tono della pelle e illuminazione. La dissociazione è un divario che si apre, non un interruttore.
 - **Due sole lineage.** Il disegno è binario. Con più dataset di addestramento si potrebbe misurare se lo spazio è organizzato per lineage anche oltre due classi, e se la struttura è metrica o solo linearmente separabile.
@@ -445,10 +537,11 @@ Analogamente, la distinzione fra editing-GAN e noise-GAN (Sezione 3.1) non è un
 - **Nessuna sorgente a diffusione.** È l'estensione di maggiore impatto, perché è dove il problema giuridico è oggi più vivo.
 - **Robustezza non testata.** Ricompressione JPEG, riscalatura e filtri applicati dopo la generazione degraderanno il canale di basso livello, che è proprio quello su cui si fonda la tesi. Serve una curva di degrado.
 - **Risoluzione.** Tutto il lavoro è a 256 pixel. Il downscale da 1024 distrugge gran parte delle tracce ad alta frequenza: lavorare a risoluzione nativa alzerebbe il tetto di ciò che è estraibile.
+- **Il caso a soli dati autentici resta binario.** Con due sole lineage, un modello addestrato solo sui reali risolve un problema a due classi; con più dataset di riferimento il compito sarebbe più severo e più vicino all'uso reale, dove l'archivio autentico è uno fra molti possibili.
 - **Un solo seed.** Ogni configurazione è stata addestrata una volta. Per l'articolo servono ripetizioni con seed diversi e intervalli di confidenza, soprattutto sui punti a finestra piccola dove la varianza è maggiore.
 
 
-## 12. Riproducibilità
+## 13. Riproducibilità
 
 Tutto il codice è nel repository **synth-attribution**. I dati e i checkpoint non sono versionati; i report in formato JSON e le figure sì. I moduli aggiunti in questa fase:
 
@@ -464,6 +557,7 @@ Tutto il codice è nel repository **synth-attribution**. I dati e i checkpoint n
 | src/eval/eval_gradcam.py | Grad-CAM media per classe e correlazione fra mappe di scarto |
 | src/viz/gradcam.py | Grad-CAM per metric learning, su CNN e su ViT |
 | src/eval/plot_patch_sweep.py | figura e tabella dello sweep |
+| src/eval/pairing_stats.py | composizione delle coppie: quanta parte della supervisione lega dati reali e generati |
 | scripts/normalize_pipeline.py | dataset con catena di ricampionamento identica per tutte le classi |
 | scripts/show_patch_positions.py | figura di metodo sulle posizioni delle patch |
 
@@ -519,6 +613,9 @@ Ogni riga corrisponde a una cartella in `report/` con il proprio `report.json`. 
 | `grid32_resnet18` | patch 32, griglia fissa | 0.9977 | 97.5% | 99.0% | +0.1240 |
 | `grid64_resnet18` | patch 64, griglia fissa | 1.0000 | 99.2% | 99.9% | +0.0436 |
 | `grid128_resnet18` | patch 128, griglia fissa | 1.0000 | 100.0% | 99.9% | +0.0196 |
+| `realonly256_resnet18` | SOLI REALI in training, immagine intera | 1.0000 | 100.0% | 100.0% | +0.0900 |
+| `realonlygrid64_resnet18` | SOLI REALI in training, patch 64 griglia | 0.9991 | 98.4% | 99.9% | +0.1262 |
+| `realonlygrid16_resnet18` | SOLI REALI in training, patch 16 griglia | 0.9446 | 84.7% | 89.2% | +0.2161 |
 
 Riassunto tabellare completo, comprensivo dei pavimenti handcrafted per ogni famiglia di descrittori e dei baseline zero-shot: `report/lineage_summary.md`. Tabelle dello sweep: `report/grid_sweep/patch_sweep.md` e `report/patch_sweep/patch_sweep.md`.
 

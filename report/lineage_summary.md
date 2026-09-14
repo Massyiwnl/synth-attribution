@@ -57,6 +57,21 @@ testando sui generatori mai visti.
 | raw | color | 0.9039 | 0.6895 |
 | raw | residual | 1.0000 | 0.9991 |
 | raw | all | 1.0000 | 0.9999 |
+| realonly256 | radial | 0.7997 | 0.8288 |
+| realonly256 | dct | 0.9999 | 0.8408 |
+| realonly256 | color | 0.8799 | 0.6593 |
+| realonly256 | residual | 1.0000 | 0.9100 |
+| realonly256 | all | 1.0000 | 0.8810 |
+| realonlygrid16 | radial | 0.6045 | 0.5016 |
+| realonlygrid16 | dct | 0.9334 | 0.7285 |
+| realonlygrid16 | color | 0.8421 | 0.6403 |
+| realonlygrid16 | residual | 0.9400 | 0.6502 |
+| realonlygrid16 | all | 1.0000 | 0.7276 |
+| realonlygrid64 | radial | 0.8222 | 0.8341 |
+| realonlygrid64 | dct | 0.9918 | 0.8594 |
+| realonlygrid64 | color | 0.8710 | 0.6903 |
+| realonlygrid64 | residual | 0.9980 | 0.8570 |
+| realonlygrid64 | all | 1.0000 | 0.8729 |
 
 ## Controllo del CONTENUTO: baseline zero-shot (nessun addestramento)
 
@@ -76,6 +91,9 @@ visibile spiega il risultato.
 | patch64 | `clip_vit_l14` | 0.8799 | 0.883 |
 | pm128 | `clip_vit_l14` | 0.9945 | 0.981 |
 | raw | `clip_vit_l14` | 0.9976 | 0.992 |
+| realonly256 | `clip_vit_l14` | 0.9925 | 0.969 |
+| realonlygrid16 | `clip_vit_l14` | 0.7714 | 0.755 |
+| realonlygrid64 | `clip_vit_l14` | 0.9013 | 0.948 |
 
 ## Deep vs pavimento
 
@@ -95,7 +113,11 @@ visibile spiega il risultato.
 | pm128 | `dinov2_vitl14` | 0.9999 | 1.0000 | 0.998 | 0.998 | 0.999 | 0.9958 | +0.0042 |
 | pm128 | `resnet18` | 1.0000 | 1.0000 | 0.999 | 0.998 | 1.000 | 0.9958 | +0.0042 |
 | pm128 | `resnet18_hp` | 1.0000 | 1.0000 | 1.000 | 1.000 | 1.000 | 0.9958 | +0.0042 |
+| pm128 | `resnet50` | 1.0000 | 1.0000 | 1.000 | 1.000 | 1.000 | 0.9958 | +0.0042 |
 | raw | `clip_vit_l14` | 1.0000 | 1.0000 | 1.000 | 1.000 | 1.000 | 0.9999 | +0.0001 |
+| realonly256 | `resnet18` | 1.0000 | 1.0000 | 1.000 | 1.000 | 1.000 | 0.9100 | +0.0900 |
+| realonlygrid16 | `resnet18` | 0.9561 | 0.9446 | 0.847 | 0.910 | 0.805 | 0.7285 | +0.2161 |
+| realonlygrid64 | `resnet18` | 1.0000 | 0.9991 | 0.984 | 0.999 | 0.973 | 0.8729 | +0.1262 |
 
 **Come si legge.** `delta` e' il margine del modello deep sopra un
 descrittore handcrafted banale. Un delta vicino a zero sul dataset
