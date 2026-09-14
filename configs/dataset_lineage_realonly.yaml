@@ -1,0 +1,39 @@
+# Configurazione dataset - Fase 8, variante SOLO REALI
+#
+# Tutti e cinque i generatori sono in holdout: il training contiene ESCLUSIVAMENTE
+# immagini autentiche (real_celeba e real_ffhq). Il modello impara soltanto a
+# distinguere CelebA autentico da FFHQ autentico, senza vedere mai un'immagine
+# generata; poi si verifica se i cinque generatori cadono comunque sulla lineage
+# del dataset su cui sono stati addestrati.
+#
+# Perche' e' la variante piu' forte, e non solo la piu' pulita. E' lo scenario
+# reale di chi lamenta l'uso dei propri dati: HA SOLO I PROPRI DATI. Non ha il
+# generatore, non ha le immagini che ha prodotto, non puo' addestrare nulla su di
+# esse. Se una metrica costruita sui soli dati autentici riconosce comunque un
+# generatore addestrato su quei dati, la pretesa diventa sostenibile senza
+# richiedere accesso al modello sospetto.
+#
+# Rispetto a dataset_lineage.yaml cambia solo l'holdout: li' il training vedeva
+# anche StarGAN e StyleGAN2, qui nessun generatore. StyleGAN2 e StyleGAN3
+# diventano entrambi evidenza forte (noise-GAN mai visti).
+#
+# Il raw_root punta al dataset a ricampionamento normalizzato, cosi' il confound
+# di resize e' gia' neutralizzato.
+
+paths:
+  raw_root: data/raw_pm128
+  manifest: data/manifest_lineage_realonly.csv
+
+image:
+  size: 256
+
+lineage:
+  celeba: [stargan, attgan, gdwct]
+  ffhq:   [stylegan2, stylegan3]
+aligned_architectures: [stargan, attgan]
+noise_architectures:   [gdwct, stylegan2, stylegan3]
+
+split:
+  seed: 42
+  ratios: {train: 0.70, val: 0.15, test: 0.15}
+  holdout_architectures: [stargan, attgan, gdwct, stylegan2, stylegan3]

@@ -1,0 +1,41 @@
+{
+  "manifest": "data/manifest_lineage_pm128.csv",
+  "policy": "lineage",
+  "train_images": 8400,
+  "train_real": 4200,
+  "train_fake": 4200,
+  "pairing_groups": {
+    "celeba": 4230,
+    "ffhq": 4170
+  },
+  "genuine": {
+    "fake+fake": {
+      "n": 1045,
+      "frac": 0.25174656709226695
+    },
+    "fake+real": {
+      "n": 2123,
+      "frac": 0.5114430257769212
+    },
+    "real+real": {
+      "n": 983,
+      "frac": 0.23681040713081186
+    }
+  },
+  "impostor": {
+    "fake+fake": {
+      "n": 1062,
+      "frac": 0.24994116262650035
+    },
+    "fake+real": {
+      "n": 2182,
+      "frac": 0.5135325959049188
+    },
+    "real+real": {
+      "n": 1005,
+      "frac": 0.23652624146858084
+    }
+  },
+  "n_genuine": 4151,
+  "n_impostor": 4249
+}
