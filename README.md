@@ -302,9 +302,6 @@ Next steps: diffusion-based generators; robustness to JPEG recompression and soc
 
 ## 12. Reports and paper material
 
-- `report/relazione_fase8.pdf` and `report/relazione_fase8.md`: the full Phase 8 report (in Italian, 26 pages), regenerated with `python scripts/build_report.py` from the `report.json` files.
 - `report/binary_summary.md`: binary head against the centroid rule, all 14 runs.
 - `report/binary_*`, `report/robustness_pm128_resnet18/`, `report/binary_gradcam_pm128_resnet18/`: outputs of the follow-up experiments.
 - `paper/figs/`: English figures used in the paper. The manuscript itself is in preparation with co-authors and is not part of this repository.
-
-If you use this work, please cite the earlier study: *Deepfake Forensic Analysis: Source Dataset Attribution and Legal Implications of Synthetic Media Manipulation*, [arXiv:2505.11110](https://arxiv.org/abs/2505.11110).
