@@ -26,6 +26,10 @@ data/manifest*.csv
 # src.eval.eval_lineage. I tre file delle fasi 2/3 restano tracciati perche'
 # fanno gia' parte della storia pubblicata.
 report/**/embeddings.npz
+paper/**/embeddings.npz
+
+# --- Paper: ready-to-upload Overleaf archive (rebuilt from overleaf_upload/) ---
+overleaf_upload.zip
 
 # --- Output esperimenti ---
 runs/
