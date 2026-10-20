@@ -1,0 +1,102 @@
+{
+  "checkpoint": "runs/lineage_pm128_resnet18/best.pt",
+  "encoder_epoch": 1,
+  "manifest": "data/manifest_lineage_pm128.csv",
+  "binary_report": "report\\binary_pm128_resnet18",
+  "tau_clean": 6.03925895690918,
+  "n_per_class": 400,
+  "lineages": [
+    "celeba",
+    "ffhq"
+  ],
+  "results": [
+    {
+      "factor": 1.0,
+      "size": 256,
+      "metrics": {
+        "tau": 6.03925895690918,
+        "auc_seen": 1.0,
+        "auc_unseen": 1.0,
+        "acc_seen": 1.0,
+        "acc_unseen": 1.0,
+        "far_unseen": 0.0,
+        "frr_unseen": 0.0
+      },
+      "per_class_correct": {
+        "attgan": 1.0,
+        "gdwct": 1.0,
+        "real_celeba": 1.0,
+        "real_ffhq": 1.0,
+        "stargan": 1.0,
+        "stylegan2": 1.0,
+        "stylegan3": 1.0
+      }
+    },
+    {
+      "factor": 0.75,
+      "size": 192,
+      "metrics": {
+        "tau": 6.03925895690918,
+        "auc_seen": 1.0,
+        "auc_unseen": 1.0,
+        "acc_seen": 0.999375,
+        "acc_unseen": 1.0,
+        "far_unseen": 0.0,
+        "frr_unseen": 0.0
+      },
+      "per_class_correct": {
+        "attgan": 1.0,
+        "gdwct": 1.0,
+        "real_celeba": 1.0,
+        "real_ffhq": 0.9975,
+        "stargan": 1.0,
+        "stylegan2": 1.0,
+        "stylegan3": 1.0
+      }
+    },
+    {
+      "factor": 0.5,
+      "size": 128,
+      "metrics": {
+        "tau": 6.03925895690918,
+        "auc_seen": 0.999996875,
+        "auc_unseen": 1.0,
+        "acc_seen": 0.980625,
+        "acc_unseen": 0.9908333333333333,
+        "far_unseen": 0.0,
+        "frr_unseen": 0.0275
+      },
+      "per_class_correct": {
+        "attgan": 1.0,
+        "gdwct": 1.0,
+        "real_celeba": 1.0,
+        "real_ffhq": 0.955,
+        "stargan": 1.0,
+        "stylegan2": 0.9675,
+        "stylegan3": 0.9725
+      }
+    },
+    {
+      "factor": 0.25,
+      "size": 64,
+      "metrics": {
+        "tau": 6.03925895690918,
+        "auc_seen": 0.75965703125,
+        "auc_unseen": 0.719946875,
+        "acc_seen": 0.5,
+        "acc_unseen": 0.6666666666666666,
+        "far_unseen": 0.0,
+        "frr_unseen": 1.0
+      },
+      "per_class_correct": {
+        "attgan": 1.0,
+        "gdwct": 1.0,
+        "real_celeba": 1.0,
+        "real_ffhq": 0.0,
+        "stargan": 1.0,
+        "stylegan2": 0.0,
+        "stylegan3": 0.0
+      }
+    }
+  ]
+}
