@@ -97,9 +97,9 @@ def main():
             if r == 0:
                 ax.set_title(cls, fontsize=9.5, color=INK_SOFT)
 
-    fig.suptitle(f"Dove guardano le due politiche  -  patch {S}x{S}, {args.k} per immagine\n"
-                 "flat: varianza minima (dipende dal contenuto)   |   "
-                 "grid: posizioni fisse, identiche per ogni immagine",
+    fig.suptitle(f"Where the two sampling policies look  -  {S}x{S} patches, {args.k} per image\n"
+                 "flat: minimum variance (depends on content)   |   "
+                 "grid: fixed positions, identical for every image",
                  fontsize=11, color=INK, y=0.99)
     fig.tight_layout(rect=[0, 0, 1, 0.92])
     out = Path(args.out); out.parent.mkdir(parents=True, exist_ok=True)

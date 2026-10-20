@@ -264,12 +264,12 @@ def save_figs(Z, cls, lin, per_class, score, tau, seen_mask, LA, LB, out):
     for k, c in enumerate(classes):
         m = cls == c
         v = per_class[c]
-        ax.scatter(p2[m, 0], p2[m, 1], s=10, alpha=0.55, color=cmap(k % 10),
+        ax.scatter(p2[m, 0], p2[m, 1], s=10, alpha=0.55, color=("#2ca02c" if v["lineage"] == LA else "#d62728"),
                    marker="o" if v["seen"] else "X",
-                   label=f"{c}{'' if v['seen'] else '  (mai visto)'}")
+                   label=f"{c}{'' if v['seen'] else '  (unseen)'}")
     ax.legend(markerscale=2, fontsize=8, loc="best")
-    ax.set_title("Spazio di embedding per lineage (PCA 2D)\n"
-                 "X = generatore mai visto in training")
+    ax.set_title("Embedding space by lineage (PCA 2D)\n"
+                 "X = generator unseen in training")
     ax.set_xlabel("PC1"); ax.set_ylabel("PC2")
     fig.tight_layout(); fig.savefig(out / "pca_lineage.png", dpi=140)
     plt.close(fig)
@@ -279,32 +279,32 @@ def save_figs(Z, cls, lin, per_class, score, tau, seen_mask, LA, LB, out):
     xs = np.arange(len(classes))
     dc = [per_class[c]["mean_d_celeba"] for c in classes]
     dfq = [per_class[c]["mean_d_ffhq"] for c in classes]
-    ax.bar(xs - 0.2, dc, 0.4, label=f"distanza dal centroide {LA}")
-    ax.bar(xs + 0.2, dfq, 0.4, label=f"distanza dal centroide {LB}")
+    ax.bar(xs - 0.2, dc, 0.4, label=f"distance to {LA} centroid")
+    ax.bar(xs + 0.2, dfq, 0.4, label=f"distance to {LB} centroid")
     ax.set_xticks(xs)
-    ax.set_xticklabels([c + ("" if per_class[c]["seen"] else "\n(mai visto)")
+    ax.set_xticklabels([c + ("" if per_class[c]["seen"] else "\n(unseen)")
                         for c in classes], rotation=35, ha="right", fontsize=8)
-    ax.set_ylabel("distanza media nell'embedding")
-    ax.set_title("Distanza media dai centroidi di lineage")
+    ax.set_ylabel("mean distance in embedding space")
+    ax.set_title("Mean distance to lineage centroids")
     ax.legend(fontsize=9)
     fig.tight_layout(); fig.savefig(out / "centroid_distances.png", dpi=140)
     plt.close(fig)
 
     # --- distribuzione dello score con la soglia calibrata ---
     fig, ax = plt.subplots(figsize=(9, 5))
-    for lab, m, sty in [(f"{LA} (visti)", seen_mask & (lin == LA), dict(alpha=.55)),
-                        (f"{LB} (visti)", seen_mask & (lin == LB), dict(alpha=.55)),
-                        (f"{LA} (mai visti)", (~seen_mask) & (lin == LA),
+    for lab, m, sty in [(f"{LA} (seen)", seen_mask & (lin == LA), dict(alpha=.55)),
+                        (f"{LB} (seen)", seen_mask & (lin == LB), dict(alpha=.55)),
+                        (f"{LA} (unseen)", (~seen_mask) & (lin == LA),
                          dict(histtype="step", lw=2)),
-                        (f"{LB} (mai visti)", (~seen_mask) & (lin == LB),
+                        (f"{LB} (unseen)", (~seen_mask) & (lin == LB),
                          dict(histtype="step", lw=2))]:
         if m.any():
             ax.hist(score[m], bins=60, density=True, label=lab, **sty)
-    ax.axvline(tau, color="k", ls="--", lw=1.5, label=f"soglia tau={tau:+.3f}")
-    ax.set_xlabel(f"score  =  d(centroide {LA}) - d(centroide {LB})   "
+    ax.axvline(tau, color="k", ls="--", lw=1.5, label=f"threshold tau={tau:+.3f}")
+    ax.set_xlabel(f"score  =  d(centroid {LA}) - d(centroid {LB})   "
                   f"[<0 -> {LA}, >0 -> {LB}]")
-    ax.set_ylabel("densita'")
-    ax.set_title("Decisione di lineage: soglia calibrata sui visti, applicata ai mai visti")
+    ax.set_ylabel("density")
+    ax.set_title("Lineage decision: threshold calibrated on seen classes, applied to unseen")
     ax.legend(fontsize=8)
     fig.tight_layout(); fig.savefig(out / "score_distribution.png", dpi=140)
     plt.close(fig)

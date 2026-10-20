@@ -36,6 +36,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from src.data.siamese_dataset import SingleImageDataset, labels_of
@@ -49,6 +50,12 @@ def embed_all(model, loader, device):
                            for x, _ in loader]).astype(np.float32)
 
 
+def binary_score(head, z):
+    """Logit FFHQ meno logit CelebA (lineage in ordine alfabetico): >0 -> FFHQ."""
+    lo = head(z)
+    return lo[:, 1] - lo[:, 0]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--checkpoint", required=True)
@@ -60,12 +67,23 @@ def main():
     ap.add_argument("--cam-size", type=int, default=64, help="risoluzione di upsampling delle CAM")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default="report/gradcam")
+    ap.add_argument("--head", default=None,
+                    help="head.pt di eval_binary.py: lo score diventa il logit binario "
+                         "(orientato verso la lineage propria) invece dei centroidi")
     args = ap.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     model, spec, epoch = load_encoder(args.checkpoint, device)
     print(f"Checkpoint epoca {epoch} | backbone input {spec.input_size}px/{spec.input_policy}")
+
+    head = None
+    if args.head:
+        ck = torch.load(args.head, map_location=device, weights_only=False)
+        head = nn.Linear(ck["state_dict"]["weight"].shape[1], 2).to(device)
+        head.load_state_dict(ck["state_dict"])
+        head.eval().requires_grad_(False)
+        print(f"Score: logit binario da {args.head}")
 
     ds = SingleImageDataset(args.manifest, "test", spec, lineage_filter=None,
                             image_size=args.image_size)
@@ -76,14 +94,16 @@ def main():
     lin = labels_of(ds.df, "lineage")
     arch = labels_of(ds.df, "architecture")
 
-    # centroidi di lineage dalle sole classi VISTE (come in eval_lineage)
-    loader = DataLoader(ds, batch_size=64, shuffle=False, num_workers=args.num_workers)
-    Z = embed_all(model, loader, device)
-    seen_mask = np.array([(a == "real") or (a in seen) for a in arch])
     lineages = sorted(np.unique(lin).tolist())
-    cent = {L: Z[seen_mask & (lin == L)].mean(0) for L in lineages}
-    print("Centroidi di lineage calcolati su:", {L: int((seen_mask & (lin == L)).sum())
-                                                 for L in lineages})
+    cent = None
+    if head is None:
+        # centroidi di lineage dalle sole classi VISTE (come in eval_lineage)
+        loader = DataLoader(ds, batch_size=64, shuffle=False, num_workers=args.num_workers)
+        Z = embed_all(model, loader, device)
+        seen_mask = np.array([(a == "real") or (a in seen) for a in arch])
+        cent = {L: Z[seen_mask & (lin == L)].mean(0) for L in lineages}
+        print("Centroidi di lineage calcolati su:", {L: int((seen_mask & (lin == L)).sum())
+                                                     for L in lineages})
 
     rng = np.random.default_rng(args.seed)
     classes = sorted(np.unique(cls).tolist())
@@ -96,12 +116,19 @@ def main():
                 idx = rng.choice(idx, args.n_per_class, replace=False)
             own = lin[idx[0]]
             other = [L for L in lineages if L != own][0]
+            # binario: logit = lineage ULTIMA (FFHQ) meno PRIMA (CelebA); per le classi
+            # CelebA il segno si inverte, cosi' lo score e' sempre "attratto dalla propria"
+            sgn = 1.0 if own == lineages[-1] else -1.0
             acc, sc, n = 0.0, [], 0
             for b in range(0, len(idx), args.batch_size):
                 bi = idx[b:b + args.batch_size]
                 x = torch.stack([ds[i][0] for i in bi])
-                m, s = cam_fn(x, cent[own], cent[other],
-                              out_size=(args.cam_size, args.cam_size))
+                if head is None:
+                    m, s = cam_fn(x, cent[own], cent[other],
+                                  out_size=(args.cam_size, args.cam_size))
+                else:
+                    m, s = cam_fn(x, out_size=(args.cam_size, args.cam_size),
+                                  score_fn=lambda z, g=sgn: g * binary_score(head, z))
                 acc = acc + m.sum(0); n += len(bi); sc.append(s)
             cam_mean[c] = acc / n
             scores_by_cls[c] = float(np.concatenate(sc).mean())
@@ -138,6 +165,8 @@ def main():
 
     save_figs(cam_mean, delta, classes, lin_of, seen, arch, cls, out)
     report = dict(checkpoint=args.checkpoint, epoch=epoch, classes=classes,
+                  score="binary_logit" if head is not None else "centroid_distance",
+                  head=args.head,
                   mean_score=scores_by_cls,
                   delta_correlation=C.tolist(),
                   mean_within_lineage_corr=float(np.mean(within)),
@@ -164,13 +193,12 @@ def save_figs(cam_mean, delta, classes, lin_of, seen, arch, cls, out):
     vmax = max(np.abs(delta[c]).max() for c in classes)
     for j, c in enumerate(classes):
         axes[0, j].imshow(cam_mean[c], cmap="jet", vmin=0, vmax=1)
-        axes[0, j].set_title(f"{c}\n{lin_of[c]}{'' if is_seen[c] else ' (mai visto)'}",
+        axes[0, j].set_title(f"{c}\n{lin_of[c]}{'' if is_seen[c] else ' (unseen)'}",
                              fontsize=7)
         axes[0, j].axis("off")
         axes[1, j].imshow(delta[c], cmap="bwr", vmin=-vmax, vmax=vmax)
         axes[1, j].axis("off")
-    fig.suptitle("Grad-CAM media per classe (sopra) e scarto dalla media globale (sotto)\n"
-                 "lo scarto e' la figura informativa: mostra cosa e' specifico della classe",
+    fig.suptitle("Mean Grad-CAM per class (top) and deviation from the global mean (bottom)",
                  fontsize=10)
     fig.tight_layout()
     fig.savefig(out / "gradcam_mean.png", dpi=140, bbox_inches="tight")

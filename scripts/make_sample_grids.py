@@ -58,7 +58,7 @@ def dataset_samples(df, out, per_class=3, seed=0):
         label = "real" if arch == "real" else arch
         axes[i, 0].text(-0.12, 0.5, f"{lin}\n{label}", transform=axes[i, 0].transAxes,
                         ha="right", va="center", fontsize=10)
-    fig.suptitle("Esempi del dataset per classe (lineage / generatore)", y=1.0, fontsize=12)
+    fig.suptitle("Dataset examples per class (lineage / generator)", y=1.0, fontsize=12)
     fig.tight_layout()
     fig.savefig(out, dpi=140, bbox_inches="tight")
     plt.close(fig)
@@ -91,7 +91,7 @@ def aligned_pairs(df, out, n=4, seed=0):
             _imshow(ax, r.iloc[0]["path"]) if len(r) else ax.axis("off")
             if i == 0:
                 ax.set_title(titles[a], fontsize=11)
-    fig.suptitle("Coppie allineate degli editing-GAN (stesso volto, edit 'Blond_Hair')",
+    fig.suptitle("Aligned pairs of editing-GANs (same face, 'Blond_Hair' edit)",
                  y=1.0, fontsize=12)
     fig.tight_layout()
     fig.savefig(out, dpi=140, bbox_inches="tight")

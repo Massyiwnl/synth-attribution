@@ -92,18 +92,23 @@ class SiameseGradCAM:
             t = t[:, T - g * g:, :]         # tieni gli ULTIMI g*g: i patch token
         return t.transpose(1, 2).reshape(B, D, g, g)
 
-    def __call__(self, x, c_own, c_other, out_size=None):
-        """x: (B,3,H,W) gia' normalizzato. c_own/c_other: centroidi (D,).
+    def __call__(self, x, c_own=None, c_other=None, out_size=None, score_fn=None):
+        """x: (B,3,H,W) gia' normalizzato.
+        Score: score_fn(z) se fornito (variante binaria, vedi eval_gradcam.py --head);
+        altrimenti d_other - d_own con i centroidi c_own / c_other (D,).
         Ritorna (cam (B,h,w) in [0,1], score (B,))."""
         self.model.eval()
         x = x.to(self.device).requires_grad_(True)   # serve perche' il grafo venga
-        c_own = torch.as_tensor(c_own, device=self.device, dtype=torch.float32)
-        c_other = torch.as_tensor(c_other, device=self.device, dtype=torch.float32)
 
         z = self.model.forward_one(x)
-        d_own = torch.norm(z - c_own[None], dim=1)
-        d_other = torch.norm(z - c_other[None], dim=1)
-        score = d_other - d_own                      # alto = attratto dalla sua lineage
+        if score_fn is not None:
+            score = score_fn(z)                      # alto = attratto dalla sua lineage
+        else:
+            c_own = torch.as_tensor(c_own, device=self.device, dtype=torch.float32)
+            c_other = torch.as_tensor(c_other, device=self.device, dtype=torch.float32)
+            d_own = torch.norm(z - c_own[None], dim=1)
+            d_other = torch.norm(z - c_other[None], dim=1)
+            score = d_other - d_own                  # alto = attratto dalla sua lineage
 
         self.model.zero_grad(set_to_none=True)
         score.sum().backward()

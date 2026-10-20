@@ -45,9 +45,9 @@ def points(prefix):
 # primi tre slot della palette categorica di riferimento: validati all-pairs
 # in light mode. L'ordine e' fisso, mai ciclato.
 COLORS = {"deep": "#2a78d6", "handcrafted": "#eb6834", "zero-shot": "#1baf7a"}
-LABELS = {"deep": "deep (metrica addestrata)",
-          "handcrafted": "handcrafted (pavimento)",
-          "zero-shot": "zero-shot CLIP (semantica)"}
+LABELS = {"deep": "deep (trained metric)",
+          "handcrafted": "handcrafted (floor)",
+          "zero-shot": "zero-shot CLIP (semantics)"}
 INK, INK_SOFT, GRID = "#0b0b0b", "#52514e", "#d9d8d4"
 UNSEEN = ["attgan", "gdwct", "stylegan3"]
 
@@ -95,7 +95,7 @@ def collect(root, prefix):
 def panel(ax, rows, suffix, title, subtitle):
     xs = [r["size"] for r in rows]
     ax.axhline(0.5, color=GRID, lw=1.2, ls=(0, (4, 3)), zorder=1)
-    ax.text(xs[0], 0.508, "caso", color=INK_SOFT, fontsize=8, va="bottom")
+    ax.text(xs[0], 0.508, "chance", color=INK_SOFT, fontsize=8, va="bottom")
 
     ends = []
     for key in ("deep", "handcrafted", "zero-shot"):      # ordine fisso
@@ -121,14 +121,14 @@ def panel(ax, rows, suffix, title, subtitle):
 
     ax.set_xscale("log", base=2)
     ax.set_xticks(xs)
-    ax.set_xticklabels([f"{x}" if x != 256 else "256\n(intera)" for x in xs],
+    ax.set_xticklabels([f"{x}" if x != 256 else "256\n(full image)" for x in xs],
                        fontsize=9)
     ax.set_xlim(xs[0] * 0.85, xs[-1] * 1.30)
     ax.set_ylim(0.45, 1.03)
     ax.set_yticks(np.arange(0.5, 1.01, 0.1))
     ax.set_yticklabels([f"{round(v*100)}%" for v in np.arange(0.5, 1.01, 0.1)],
                        fontsize=9)
-    ax.set_xlabel("dimensione della finestra di analisi (px)", fontsize=9.5,
+    ax.set_xlabel("analysis window size (px)", fontsize=9.5,
                   color=INK_SOFT)
     ax.set_title(title, fontsize=11, color=INK, loc="left", pad=14,
                  fontweight="semibold")
@@ -167,20 +167,20 @@ def main():
     for ax in axes:
         ax.set_facecolor("#fcfcfb")
     panel(axes[0], rows, "unseen",
-          "A. Tutti i generatori mai visti",
-          "media su AttGAN, GDWCT, StyleGAN3")
+          "A. All unseen generators",
+          "mean over AttGAN, GDWCT, StyleGAN3")
     panel(axes[1], rows, "sg3",
-          "B. StyleGAN3 - evidenza forte",
-          "noise-GAN mai visto: genera da rumore, nessun input reale")
-    axes[0].set_ylabel("attribuito alla lineage corretta", fontsize=9.5,
+          "B. StyleGAN3 - strong evidence",
+          "unseen noise-GAN: generates from noise, no real input")
+    axes[0].set_ylabel("attributed to the correct lineage", fontsize=9.5,
                        color=INK_SOFT)
 
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", ncol=3, frameon=False,
                fontsize=9.5, bbox_to_anchor=(0.5, -0.02),
                labelcolor=INK)
-    fig.suptitle("Rimpicciolendo la finestra si toglie il contenuto semantico: "
-                 "la traccia di basso livello resta",
+    fig.suptitle("Shrinking the window removes the semantic content: "
+                 "the low-level trace remains",
                  fontsize=12.5, color=INK, y=1.0, fontweight="semibold")
     fig.tight_layout(rect=[0, 0.06, 1, 0.96])
     fig.savefig(out / "patch_sweep.png", dpi=150, bbox_inches="tight",

@@ -283,9 +283,9 @@ def save_figs(report, fft_sum, dct_sum, n_by_cls, classes, out):
     fig, ax = plt.subplots(figsize=(8, 5))
     for c in classes:
         ax.plot(report["mean_radial"][c], label=c, lw=1.4)
-    ax.set_xlabel("frequenza radiale (bin; 0 = DC .. Nyquist)")
-    ax.set_ylabel("log-potenza media")
-    ax.set_title("Spettro di potenza azimutale medio per classe")
+    ax.set_xlabel("radial frequency (bin; 0 = DC .. Nyquist)")
+    ax.set_ylabel("mean log-power")
+    ax.set_title("Mean azimuthal power spectrum per class")
     ax.legend(fontsize=8)
     fig.tight_layout(); fig.savefig(out / "radial_spectrum.png", dpi=140); plt.close(fig)
 
@@ -294,9 +294,9 @@ def save_figs(report, fft_sum, dct_sum, n_by_cls, classes, out):
     for c in classes:
         v = report["mean_radial"][c]
         ax.plot(range(80, len(v)), v[80:], label=c, lw=1.4)
-    ax.set_xlabel("frequenza radiale (bin, zoom alte frequenze)")
-    ax.set_ylabel("log-potenza media")
-    ax.set_title("Alte frequenze: qui vive la firma di ricampionamento")
+    ax.set_xlabel("radial frequency (bin, high-frequency zoom)")
+    ax.set_ylabel("mean log-power")
+    ax.set_title("High frequencies: the resampling signature lives here")
     ax.legend(fontsize=8)
     fig.tight_layout(); fig.savefig(out / "radial_spectrum_hf.png", dpi=140); plt.close(fig)
 
@@ -311,7 +311,7 @@ def save_figs(report, fft_sum, dct_sum, n_by_cls, classes, out):
         d = dct_sum[c] / n_by_cls[c]
         axes[1, j].imshow(d, cmap="magma"); axes[1, j].axis("off")
     axes[0, 0].set_ylabel("log|FFT|"); axes[1, 0].set_ylabel("log|DCT|")
-    fig.suptitle("Mappe spettrali medie per classe (sopra log|FFT 2D|, sotto log|DCT 2D|)",
+    fig.suptitle("Mean spectral maps per class (top: log|FFT 2D|, bottom: log|DCT 2D|)",
                  fontsize=10)
     fig.tight_layout(); fig.savefig(out / "spectral_maps.png", dpi=140); plt.close(fig)
     print(f"  figure -> {out}/radial_spectrum.png , radial_spectrum_hf.png , spectral_maps.png")

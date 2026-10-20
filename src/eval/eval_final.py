@@ -101,13 +101,13 @@ def main():
     im = ax.imshow(cm, cmap="Blues")
     ax.set_xticks(range(len(classes))); ax.set_yticks(range(len(classes)))
     ax.set_xticklabels(classes, rotation=40, ha="right"); ax.set_yticklabels(classes)
-    ax.set_xlabel("predetto"); ax.set_ylabel("vero")
+    ax.set_xlabel("predicted"); ax.set_ylabel("true")
     thr = cm.max() / 2
     for i in range(len(classes)):
         for j in range(len(classes)):
             ax.text(j, i, int(cm[i, j]), ha="center", va="center",
                     color="white" if cm[i, j] > thr else "black", fontsize=9)
-    ax.set_title(f"Attribuzione closed-set (top-1 = {top1:.3f})")
+    ax.set_title(f"Closed-set attribution (top-1 = {top1:.3f})")
     fig.tight_layout(); fig.savefig(out / "confusion.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
@@ -119,7 +119,7 @@ def main():
         m = true == c
         ax.scatter(p2[m, 0], p2[m, 1], s=8, alpha=0.6, color=cmap(k % 10), label=c)
     ax.legend(markerscale=2, fontsize=9, loc="best")
-    ax.set_title("Spazio di embedding del modello finale (PCA 2D)")
+    ax.set_title("Embedding space of the final model (PCA 2D)")
     ax.set_xlabel("PC1"); ax.set_ylabel("PC2")
     fig.tight_layout(); fig.savefig(out / "pca_final.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
